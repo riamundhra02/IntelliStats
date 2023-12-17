@@ -23,7 +23,6 @@ export default function PcaGraph({ data }) {
         if (hasData && xdata.length > 2) {
             let vectors = PCA.getEigenVectors(xdata_transpose)
             let varianceExplained = vectors.map((vector, i) => { return [vector, PCA.computePercentageExplained(vectors, vector)] })
-            console.log(varianceExplained)
             setVariances(varianceExplained)
             setAdjusted(PCA.computeAdjustedData(xdata_transpose, vectors[xAxis], vectors[zAxis]).formattedAdjustedData)
         }

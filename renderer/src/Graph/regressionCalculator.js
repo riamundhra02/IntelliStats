@@ -55,7 +55,6 @@ export function regressionCalculator(X, y, intercept) {
     if (intercept) {
         X.push(Array(X[0].length).fill(1))
     }
-    console.log(X)
     let Xt = transpose(X)
     let yt = transpose(y)
     const X_Xt = multiply(X, Xt);

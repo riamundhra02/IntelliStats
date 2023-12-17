@@ -72,7 +72,7 @@ function exportDataFunctionCSV(win) {
     win.webContents.send('ExportData', "csv")
 }
 
-let v = 0 ;
+let v = 0;
 function regression(win, dirname) {
     win.webContents.send('Regression', v)
     // let popupWindow = new BrowserWindow({
@@ -92,8 +92,41 @@ function regression(win, dirname) {
     // Menu.setApplicationMenu(null);
     // popupWindow.webContents.openDevTools()
     // popupWindow.loadURL(`http://localhost:3000/regression`);
-    v+=1
+    v += 1
 
 }
 
-module.exports = { importFunction, exportDataFunctionXLSX, exportDataFunctionCSV, regression }
+function saveAsTemplate(win) {
+    win.webContents.send('SaveAsTemplate', "SaveAsTemplate")
+}
+
+function importTemplate(win) {
+    dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [{
+            name: 'Template',
+            extensions: ['template']
+        }]
+    }).then((fileName) => {
+        if (fileName.canceled || fileName === undefined) {
+            console.log("No file selected");
+            return;
+        }
+        fs.readFile(fileName.filePaths[0], 'utf8', (err, data) => {
+            if (err) {
+                alert("An error ocurred reading the file :" + err.message);
+                return;
+            }
+            let parsedData = JSON.parse(data)
+            let formattedGraphs = parsedData.graph.map((state, i) =>{
+                return {states: state, idx: v++}
+            })
+            let formattedData = {data: parsedData.data, graph: formattedGraphs}
+            win.webContents.send('importTemplate', formattedData)
+        })
+
+
+    });
+}
+
+module.exports = { importFunction, exportDataFunctionXLSX, exportDataFunctionCSV, regression, saveAsTemplate, importTemplate }

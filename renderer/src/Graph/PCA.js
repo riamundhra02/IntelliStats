@@ -6,5 +6,3 @@ let vectors = PCA.getEigenVectors(test_data)
 let first = PCA.computePercentageExplained(vectors,vectors[0])
 let topTwo = PCA.computePercentageExplained(vectors,vectors[0],vectors[1])
 let adjusted = PCA.computeAdjustedData(test_data, vectors[0], vectors[1], vectors[2])
-
-console.log(vectors, adjusted)

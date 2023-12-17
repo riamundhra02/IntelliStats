@@ -1,5 +1,6 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
 const menuFuncs = require('./ElectronFunctions/menu')
+const fs = require('fs');
 
 let win;
 function createWindow() {
@@ -13,11 +14,36 @@ function createWindow() {
     });
     win.loadURL('http://localhost:3000'); // <--- (3) Loading react
 
-    win.webContents.openDevTools()
-    win.webContents.on('did-finish-load', () => { win.webContents.send('ping', 'ping') });
-    win.on('closed', () => {
-        win = null
-    });
+
+    ipcMain.on('saveTemplate', (event, m) => {
+        dialog.showSaveDialog({
+            title: 'Select File Path',
+            buttonLabel: 'Save',
+            filters: [
+                {
+                    name: 'Template Files',
+                    extensions: ['template']
+                },],
+            properties: []
+        }).then(file => {
+            if (!file.canceled) {
+
+                // Creating and Writing to the sample.txt file 
+                fs.writeFile(file.filePath.toString(),
+                    JSON.stringify(m), function (err) {
+                        if (err) throw err;
+                    });
+            }
+        }).catch(err => {
+            console.log(err)
+        })
+})
+win.webContents.openDevTools()
+win.webContents.on('did-finish-load', () => { win.webContents.send('ping', 'ping') });
+win.on('closed', () => {
+    win = null
+});
+
 };
 app.on('ready', createWindow);
 app.on('window-all-closed', () => {
@@ -55,7 +81,10 @@ const template = [
         label: 'File',
         submenu: [
             {
-                label: 'Import',
+                label: 'Open Project',
+            },
+            {
+                label: 'Import Data',
                 click: () => { menuFuncs.importFunction(win) }
             },
             {
@@ -78,27 +107,33 @@ const template = [
                     { label: 'Export Results' }
                 ]
             },
-            { label: 'Save' },
+            {
+                label: 'Save',
+                submenu: [
+                    { label: 'Save Project' },
+                    {
+                        label: 'Save as Template',
+                        click: () => { menuFuncs.saveAsTemplate(win) }
+                    }
+                ]
+            },
             isMac ? { role: 'close' } : { role: 'quit' }
         ]
     },
     {
         label: 'Insert',
         submenu: [
-            { label: "From Template" },
+            { label: "From Template",
+        click: () => {menuFuncs.importTemplate(win)} },
             {
                 label: "Regression Model",
                 click: () => { menuFuncs.regression(win, __dirname) }
             },
-            { label: "Estimation Methods" }
         ]
     },
     {
         label: 'Edit',
         submenu: [
-            { role: 'undo' },
-            { role: 'redo' },
-            { type: 'separator' },
             { role: 'cut' },
             { role: 'copy' },
             { role: 'paste' },

@@ -70,7 +70,6 @@ export function ScatterPlotChart({ expr, points }) {
                 top: Math.max(...ydata)
             });
 
-            console.log(calculator.graphpaperBounds, Math.min(...(xdata.flat())), ...(xdata.flat()))
         } else {
             let calc = Desmos.GraphingCalculator(calcRef.current, { keypad: false })
             calc.setExpression({
@@ -144,7 +143,6 @@ export function ScatterPlotChart({ expr, points }) {
     //     }
     // }, [loading, theme]);
 
-    // {console.log('hello')}
 
     return (
         <>

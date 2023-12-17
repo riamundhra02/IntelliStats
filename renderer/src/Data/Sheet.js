@@ -27,13 +27,22 @@ const useStyles = makeStyles(theme => ({
     }
 }));
 
-export default function Sheet({ data, exportClicked, setExportClicked }) {
+export default function Sheet({ data, exportClicked, setExportClicked, setSheetDrag, index, selectedIndexes, addToTemplate }) {
     const [range, setRange] = useState()
     const classes = useStyles();
     const [height, setHeight] = React.useState(defaultHeight);
+    
 
     const gridRef = useRef()
     const draggerRef= useRef()
+
+    useEffect(() => {
+        if(selectedIndexes.includes(index)){
+            addToTemplate({
+                data: data}, index, 'data')
+        }
+        
+    }, [selectedIndexes])
 
     useEffect(() => {
         if (exportClicked == 'xlsx') {
@@ -47,8 +56,10 @@ export default function Sheet({ data, exportClicked, setExportClicked }) {
     }, [exportClicked])
 
     function rangeSelectionChanged(event) {
+        setSheetDrag(true)
         if (event.finished) {
             setRange(event.api.getCellRanges())
+            setSheetDrag(false)
         }
 
     }
@@ -77,7 +88,7 @@ export default function Sheet({ data, exportClicked, setExportClicked }) {
             });
         }
         columns = Array.from(columns)
-        var jsonData = JSON.stringify({ data: data, cols: columns });
+        var jsonData = JSON.stringify({ data: data, dataset: index });
         e.dataTransfer.setData('application/json', jsonData);
         e.dataTransfer.setData('text/plain', jsonData);
     };
@@ -95,12 +106,13 @@ export default function Sheet({ data, exportClicked, setExportClicked }) {
     }
 
     const handleMouseDown = e => {
+        setSheetDrag(true)
         document.addEventListener("mouseup", handleMouseUp, true);
         document.addEventListener("mousemove", handleMouseMove, true);
-        console.log("mousedown")
     };
 
     const handleMouseUp = () => {
+        setSheetDrag(false)
         document.removeEventListener("mouseup", handleMouseUp, true);
         document.removeEventListener("mousemove", handleMouseMove, true);
     };
@@ -116,7 +128,7 @@ export default function Sheet({ data, exportClicked, setExportClicked }) {
 
     return (
         <>
-            <div className="ag-theme-alpine" style={{ height: height, marginBottom: '2rem', marginTop: '2rem' }} ref={draggerRef}>
+            <div className="ag-theme-alpine" style={{ height: height, marginBottom: '2rem', marginTop: '2rem', width: '100%' }} ref={draggerRef} onClick={(ev) => {ev.stopPropagation()}}>
                 <AgGridReact ref={gridRef} enableCharts={true} rowDragManaged={true} suppressRowClickSelection={true} rowData={data} columnDefs={columns} enableRangeSelection={true} onRangeSelectionChanged={rangeSelectionChanged} keepLastSelected={false}></AgGridReact>
                 <div onMouseDown={e => handleMouseDown(e)} className={classes.dragger}></div>
             </div>
