@@ -149,7 +149,7 @@ export function ScatterPlotChart({ expr, points }) {
             <br />
             <br />
             
-            <div ref={calcRef} style={{ width: '100%', height: '300px' }}></div>
+            <div ref={calcRef} style={{ width: '100%', height: '400px' }}></div>
         </>
     );
 }

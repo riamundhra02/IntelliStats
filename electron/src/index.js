@@ -21,8 +21,8 @@ function createWindow() {
             buttonLabel: 'Save',
             filters: [
                 {
-                    name: 'Template Files',
-                    extensions: ['template']
+                    name: `${m.save} Files`,
+                    extensions: [m.save]
                 },],
             properties: []
         }).then(file => {
@@ -37,12 +37,12 @@ function createWindow() {
         }).catch(err => {
             console.log(err)
         })
-})
-win.webContents.openDevTools()
-win.webContents.on('did-finish-load', () => { win.webContents.send('ping', 'ping') });
-win.on('closed', () => {
-    win = null
-});
+    })
+    win.webContents.openDevTools()
+    win.webContents.on('did-finish-load', () => { win.webContents.send('ping', 'ping') });
+    win.on('closed', () => {
+        win = null
+    });
 
 };
 app.on('ready', createWindow);
@@ -104,13 +104,19 @@ const template = [
                         ]
 
                     },
-                    { label: 'Export Results' }
+                    {
+                        label: 'Export Page',
+                        click: () => { menuFuncs.exportPDF(win) }
+                    }
                 ]
             },
             {
                 label: 'Save',
                 submenu: [
-                    { label: 'Save Project' },
+                    {
+                        label: 'Save Project',
+                        click: () => { menuFuncs.saveProject(win)}
+                    },
                     {
                         label: 'Save as Template',
                         click: () => { menuFuncs.saveAsTemplate(win) }
@@ -123,8 +129,10 @@ const template = [
     {
         label: 'Insert',
         submenu: [
-            { label: "From Template",
-        click: () => {menuFuncs.importTemplate(win)} },
+            {
+                label: "From Template",
+                click: () => { menuFuncs.importTemplate(win) }
+            },
             {
                 label: "Regression Model",
                 click: () => { menuFuncs.regression(win, __dirname) }

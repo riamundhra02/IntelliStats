@@ -4,6 +4,7 @@ const path = require('path')
 const papaparse = require('papaparse')
 const xlsx = require('xlsx')
 
+let d = 0
 function importFunction(win) {
     dialog.showOpenDialog({
         properties: ['openFile'],
@@ -22,7 +23,7 @@ function importFunction(win) {
             const wsname = wb.SheetNames[0];
             const ws = wb.Sheets[wsname];
             const data = xlsx.utils.sheet_to_json(ws);
-            win.webContents.send('Import', { data: data })
+            win.webContents.send('Import', { data: data, idx: d++ })
         } else {
             fs.readFile(fileName.filePaths[0], 'utf8', (err, data) => {
                 if (err) {
@@ -57,7 +58,7 @@ function importFunction(win) {
                     delimitersToGuess: [',', '\t', '|', ';', papaparse.RECORD_SEP, papaparse.UNIT_SEP],
                     skipFirstNLines: 0
                 })
-                win.webContents.send('Import', data)
+                win.webContents.send('Import', {data: data.data, idx: d++}) 
             })
         }
 
@@ -100,6 +101,15 @@ function saveAsTemplate(win) {
     win.webContents.send('SaveAsTemplate', "SaveAsTemplate")
 }
 
+function saveProject(win) {
+
+    win.webContents.send('SaveProject', "SaveProject")
+}
+
+function exportPDF(win) {
+    win.webContents.send('exportPDF', "exportPDF")
+}
+
 function importTemplate(win) {
     dialog.showOpenDialog({
         properties: ['openFile'],
@@ -121,7 +131,10 @@ function importTemplate(win) {
             let formattedGraphs = parsedData.graph.map((state, i) =>{
                 return {states: state, idx: v++}
             })
-            let formattedData = {data: parsedData.data, graph: formattedGraphs}
+            let formattedDataSources = parsedData.data.map((state, i) =>{
+                return {states: state, idx: d++}
+            })
+            let formattedData = {data: formattedDataSources, graph: formattedGraphs}
             win.webContents.send('importTemplate', formattedData)
         })
 
@@ -129,4 +142,4 @@ function importTemplate(win) {
     });
 }
 
-module.exports = { importFunction, exportDataFunctionXLSX, exportDataFunctionCSV, regression, saveAsTemplate, importTemplate }
+module.exports = { importFunction, exportDataFunctionXLSX, exportDataFunctionCSV, regression, saveAsTemplate, importTemplate, exportPDF, saveProject }

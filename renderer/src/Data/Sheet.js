@@ -1,4 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import Grid from '@mui/material/Grid/Grid'
+import IconButton from '@mui/material/IconButton';
+import CloseIcon from '@mui/icons-material/Close';
 import { makeStyles } from "@mui/styles";
 import { AgGridReact, grid } from 'ag-grid-react'
 import { RangeSelectionModule } from "ag-grid-enterprise";
@@ -27,22 +30,30 @@ const useStyles = makeStyles(theme => ({
     }
 }));
 
-export default function Sheet({ data, exportClicked, setExportClicked, setSheetDrag, index, selectedIndexes, addToTemplate }) {
+export default function Sheet({ data, exportClicked, setExportClicked, index, selectedIndexes, addToTemplate, removeIdxFromData, projectSaveClicked }) {
     const [range, setRange] = useState()
     const classes = useStyles();
     const [height, setHeight] = React.useState(defaultHeight);
-    
+
 
     const gridRef = useRef()
-    const draggerRef= useRef()
+    const draggerRef = useRef()
+
+    function handleClose(ev) {
+        let conf = window.confirm('Delete data source?')
+        if (conf) {
+            removeIdxFromData(index)
+        }
+    }
 
     useEffect(() => {
-        if(selectedIndexes.includes(index)){
+        if (selectedIndexes.includes(index) || projectSaveClicked) {
             addToTemplate({
-                data: data}, index, 'data')
+                data: data
+            }, index, 'data')
         }
-        
-    }, [selectedIndexes])
+
+    }, [selectedIndexes, index, data])
 
     useEffect(() => {
         if (exportClicked == 'xlsx') {
@@ -56,10 +67,8 @@ export default function Sheet({ data, exportClicked, setExportClicked, setSheetD
     }, [exportClicked])
 
     function rangeSelectionChanged(event) {
-        setSheetDrag(true)
         if (event.finished) {
             setRange(event.api.getCellRanges())
-            setSheetDrag(false)
         }
 
     }
@@ -106,13 +115,11 @@ export default function Sheet({ data, exportClicked, setExportClicked, setSheetD
     }
 
     const handleMouseDown = e => {
-        setSheetDrag(true)
         document.addEventListener("mouseup", handleMouseUp, true);
         document.addEventListener("mousemove", handleMouseMove, true);
     };
 
     const handleMouseUp = () => {
-        setSheetDrag(false)
         document.removeEventListener("mouseup", handleMouseUp, true);
         document.removeEventListener("mousemove", handleMouseMove, true);
     };
@@ -128,11 +135,19 @@ export default function Sheet({ data, exportClicked, setExportClicked, setSheetD
 
     return (
         <>
-            <div className="ag-theme-alpine" style={{ height: height, marginBottom: '2rem', marginTop: '2rem', width: '100%' }} ref={draggerRef} onClick={(ev) => {ev.stopPropagation()}}>
+            <div className="ag-theme-alpine" style={{ height: height, marginBottom: '2rem', marginTop: '2rem', width: '100%' }} ref={draggerRef}>
+                <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
+                    <Grid item xs={8} />
+                    <Grid item xs={1}>
+                        <IconButton aria-label="delete" onClick={handleClose}>
+                            <CloseIcon />
+                        </IconButton>
+                    </Grid>
+                </Grid>
                 <AgGridReact ref={gridRef} enableCharts={true} rowDragManaged={true} suppressRowClickSelection={true} rowData={data} columnDefs={columns} enableRangeSelection={true} onRangeSelectionChanged={rangeSelectionChanged} keepLastSelected={false}></AgGridReact>
                 <div onMouseDown={e => handleMouseDown(e)} className={classes.dragger}></div>
             </div>
-            
+
         </>
     )
 

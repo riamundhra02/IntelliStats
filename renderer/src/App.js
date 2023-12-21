@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Paper from '@mui/material/Paper/Paper'
 import './App.css';
 import Sheet from './Data/Sheet';
@@ -8,6 +8,10 @@ import Graph from './Graph/Graph'
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button'
+import TrapFocus from '@mui/material/Unstable_TrapFocus';
+import Fade from '@mui/material/Fade';
+import Grid from '@mui/material/Grid/Grid'
+import generatePDF, { Resolution, Margin } from 'react-to-pdf';
 
 function App() {
     const [dataSources, setDataSources] = useState([])
@@ -20,11 +24,23 @@ function App() {
         height: 0
     })
     const [mouseDown, setMouseDown] = useState(false)
-    const [sheetDrag, setSheetDrag] = useState(false)
     const [currentScroll, setCurrentScroll] = useState(0)
     const [selectedGraphIndexes, setSelectedGraphIndexes] = useState([])
     const [selectedDataIndexes, setSelectedDataIndexes] = useState([])
     const [template, setTemplate] = useState({ graph: [], data: [] })
+    const [saveClicked, setSaveClicked] = useState(false)
+    const [projectSaveClicked, setProjectSaveClicked] = useState(false)
+    const pdfRef = useRef()
+
+    const options = {
+        method: 'save',
+        resolution: Resolution.HIGH,
+        page: {
+           margin: Margin.SMALL,
+           format: 'letter',
+           orientation: 'portait',
+        }
+     };
 
     function startRect(ev) {
         setSelectedRect({
@@ -37,22 +53,13 @@ function App() {
     }
 
     function updateRect(ev) {
-        if (mouseDown && !sheetDrag) {
+        if (mouseDown && saveClicked) {
             setSelectedRect({
                 pivotX: selectedRect.pivotX,
                 pivotY: selectedRect.pivotY,
                 width: ev.clientX - selectedRect.pivotX,
                 height: ev.clientY - selectedRect.pivotY + currentScroll
             })
-        } else if (sheetDrag) {
-            setSelectedRect({
-                pivotX: 0,
-                pivotY: 0,
-                width: 0,
-                height: 0
-            })
-            setSelectedDataIndexes([])
-            setSelectedGraphIndexes([])
         }
     }
 
@@ -75,7 +82,10 @@ function App() {
         order: 1,
         numberVar: 1,
         regressionExpr: '',
-        checked: true
+        checked: true,
+        tabValue: 0,
+        xAxis: 0,
+        zAxis: 1
     }
 
     function removeIdxFromGraphs(idx) {
@@ -84,35 +94,93 @@ function App() {
         setRegression(clone)
     }
 
-    function addToTemplate(state, idx, type) {
-        if (type == 'graph') {
-            let copy = [...template.graph]
-            copy[idx] = state
-            setTemplate({ data: template.data, graph: copy })
+    function removeIdxFromData(idx) {
+        let clone = [...dataSources]
+        clone.splice(idx, 1)
+        setDataSources(clone)
+    }
+
+    function continueClicked(ev) {
+        if (selectedGraphIndexes.length + selectedDataIndexes.length == 0 && !projectSaveClicked) {
+            alert('Nothing to save!')
         } else {
-            let copy = [...template.data]
-            copy[idx] = state
-            setTemplate({ data: copy, graph: template.graph })
+            let conf = projectSaveClicked ? true : window.confirm("Save selection as template?")
+            if (conf) {
+                let filteredData = template.data.filter((v, i) => { return selectedDataIndexes.includes(i) })
+                let filteredGraphs = template.graph.filter((v, i) => { return selectedGraphIndexes.includes(i) })
+                let alertNeeded = false
+                let formattedGraphs = filteredGraphs.map((v, i) => {
+                    let xdata_new = v.xdata.map((x, j) => {
+                        if (selectedDataIndexes.includes(x.dataset)) {
+                            return x
+                        } else {
+                            alertNeeded = alertNeeded || x.dataset > -1
+                            return { data: [], dataset: -1 }
+                        }
+                    })
+
+                    let ydata_new
+                    if (selectedDataIndexes.includes(v.ydata.dataset)) {
+                        ydata_new = v.ydata
+                    } else {
+                        alertNeeded = alertNeeded || v.ydata.dataset > -1
+                        ydata_new = { data: [], dataset: -1 }
+                    }
+
+                    let copy = { ...v }
+                    copy.xdata = xdata_new
+                    copy.ydata = ydata_new
+
+                    return copy
+                })
+
+                let dataConfirm = true
+                if (alertNeeded) {
+                    dataConfirm = window.confirm("At least one regression model selected requires data from outside the selection. If you continue, the model will be saved without the data. Continue?")
+
+                }
+
+                if (dataConfirm) {
+                    window.ipcRenderer.send('saveTemplate', { graph: formattedGraphs, data: filteredData, save: projectSaveClicked ? 'project' : 'template' })
+                }
+            }
+        }
+        setSaveClicked(false)
+    }
+
+    function addToTemplate(state, idx, type) {
+        if (saveClicked) {
+            if (type == 'graph') {
+                let copy = [...template.graph]
+                copy[idx] = state
+                setTemplate({ data: template.data, graph: copy })
+            } else {
+                let copy = [...template.data]
+                copy[idx] = state
+                setTemplate({ data: copy, graph: template.graph })
+            }
         }
     }
 
     function updateSelectedIndexes(i, type) {
-        let index, copy, setter;
-        if (type == 'graph') {
-            index = selectedGraphIndexes.indexOf(i)
-            copy = [...selectedGraphIndexes]
-            setter = setSelectedGraphIndexes
-        } else {
-            index = selectedDataIndexes.indexOf(i)
-            copy = [...selectedDataIndexes]
-            setter = setSelectedDataIndexes
-        }
-        if (index > -1) {
-            copy.splice(index, 1)
-            setter(copy)
-        } else {
-            copy.push(i)
-            setter(copy)
+        if (saveClicked) {
+            let index, copy, setter;
+            if (type == 'graph') {
+                index = selectedGraphIndexes.indexOf(i)
+                copy = [...selectedGraphIndexes]
+                setter = setSelectedGraphIndexes
+            } else {
+                index = selectedDataIndexes.indexOf(i)
+                copy = [...selectedDataIndexes]
+                setter = setSelectedDataIndexes
+            }
+            if (index > -1) {
+                copy.splice(index, 1)
+                setter(copy)
+            } else {
+                copy.push(i)
+                setter(copy)
+            }
         }
     }
 
@@ -133,7 +201,8 @@ function App() {
             setDataSources(
                 [
                     ...dataSources,
-                    m.data
+                    {idx: m.idx,
+                    data: m.data}
                 ]
             );
         });
@@ -146,11 +215,15 @@ function App() {
             }
         });
 
+        window.ipcRenderer.on('exportPDF', (event, m) => {
+            generatePDF(pdfRef, options)
+        });
+
         window.ipcRenderer.on('importTemplate', (event, m) => {
             let dataCopy = [...dataSources]
             setDataSources([
                 ...dataSources,
-                ...m.data.map((dataset, i) => { return dataset.data })
+                ...m.data
             ])
 
             setRegression(
@@ -173,59 +246,23 @@ function App() {
         })
 
         window.ipcRenderer.on('SaveAsTemplate', (event, m) => {
-            if (selectedGraphIndexes.length == 0) {
-                alert('Nothing selected! ')
-            } else {
-                let conf = window.confirm("Save selection as template?")
-                if (conf) {
-                    let filteredData = template.data.filter((v, i) => { return selectedDataIndexes.includes(i) })
-                    let filteredGraphs = template.graph.filter((v, i) => { return selectedGraphIndexes.includes(i) })
-                    let alertNeeded = false
-                    let formattedGraphs = filteredGraphs.map((v, i) => {
-                        let xdata_new = v.xdata.map((x, j) => {
-                            if (selectedDataIndexes.includes(x.dataset)) {
-                                return x
-                            } else {
-                                alertNeeded = true
-                                return { data: [], dataset: -1 }
-                            }
-                        })
-
-                        let ydata_new
-                        if (selectedDataIndexes.includes(v.ydata.dataset)) {
-                            ydata_new = v.ydata
-                        } else {
-                            alertNeeded = true
-                            ydata_new = { data: [], dataset: -1 }
-                        }
-
-                        let copy = { ...v }
-                        copy.xdata = xdata_new
-                        copy.ydata = ydata_new
-
-                        console.log(copy)
-                        return copy
-                    })
-
-                    let dataConfirm = true
-                    if (alertNeeded) {
-                        dataConfirm = window.confirm("At least one regression model selected requires data from outside the selection. If you continue, the model will be saved without the data. Continue?")
-
-                    }
-
-                    if (dataConfirm) {
-                        console.log({ graph: filteredGraphs, data: filteredData })
-                        window.ipcRenderer.send('saveTemplate', { graph: formattedGraphs, data: filteredData })
-                    }
-                }
-            }
+            alert("Please select items to save to template, then click Continue")
+            setSaveClicked(true)
         })
+
+        window.ipcRenderer.on('SaveProject', (event, m) => {
+            setProjectSaveClicked(true)
+            continueClicked()
+        })
+
         return function cleanup() {
             window.ipcRenderer.removeAllListeners('Import')
             window.ipcRenderer.removeAllListeners('ExportData')
             window.ipcRenderer.removeAllListeners('Regression')
             window.ipcRenderer.removeAllListeners('SaveAsTemplate')
+            window.ipcRenderer.removeAllListeners('SaveProject')
             window.ipcRenderer.removeAllListeners('importTemplate')
+            window.ipcRenderer.removeAllListeners('exportPDF')
 
         }
     }, [dataSources, regression, selectedGraphIndexes, template]);
@@ -236,7 +273,7 @@ function App() {
 
     let dict = {}
     regression.forEach((v, i) => {
-        dict[i] = <Button key={v.idx} disableRipple onClick={(ev) => { ev.stopPropagation(); if (selectedGraphIndexes.length == 0 || ev.crtlKey || ev.metaKey || (selectedGraphIndexes.length == 1 && selectedGraphIndexes.includes(i))) { updateSelectedIndexes(i, 'graph') } else { setSelectedGraphIndexes([]); setSelectedDataIndexes([]) } }}
+        dict[i] = <Button key={v.idx} disableRipple
             sx={{
                 flexDirection: 'column',
                 width: '100%',
@@ -249,21 +286,21 @@ function App() {
             }}
             onMouseMove={
                 (ev) => {
-                    if (!sheetDrag && mouseDown && selectedGraphIndexes.indexOf(i) == -1) {
+                    if (saveClicked && mouseDown && selectedGraphIndexes.indexOf(i) == -1) {
                         let copy = [...selectedGraphIndexes]
                         copy.push(i)
                         setSelectedGraphIndexes(copy)
                     }
                 }
             }
-            // onMouseOut={(ev) => {
-            //     if (!sheetDrag && mouseDown) {
-            //         updateSelectedIndexes(i, 'graph')
+        // onMouseOut={(ev) => {
+        //     if (mouseDown) {
+        //         updateSelectedIndexes(i, 'graph')
 
-            //     }
-            // }}
+        //     }
+        // }}
         >
-            <Graph idx={i} setSheetDrag={setSheetDrag} removeIdxFromGraphs={removeIdxFromGraphs} states={v.states} selectedIndexes={selectedGraphIndexes} addToTemplate={addToTemplate} onClick={(ev) => { ev.stopPropagation() }} />
+            <Graph idx={i} projectSaveClicked = {projectSaveClicked} removeIdxFromGraphs={removeIdxFromGraphs} states={v.states} selectedIndexes={selectedGraphIndexes} addToTemplate={addToTemplate} />
         </Button >
     })
 
@@ -291,10 +328,10 @@ function App() {
                 <BrowserRouter>
                     <Routes>
                         <Route path='/' element={
-                            <Paper elevation={3} sx={{ width: 4 / 5, m: 'auto', mt: '3rem', height: 'auto', padding: '1rem', minHeight: 1000 }}>
+                            <Paper ref = {pdfRef} elevation={3} sx={{ width: 4 / 5, m: 'auto', mt: '3rem', height: 'auto', padding: '1rem', minHeight: 1000 }}>
                                 {dataSources.map((m, i) => {
                                     return (
-                                        <Button key={i} disableRipple onClick={(ev) => { ev.stopPropagation(); if (!sheetDrag && (selectedDataIndexes.length == 0 || ev.crtlKey || ev.metaKey || (selectedDataIndexes.length == 1 && selectedGraphIndexes.includes(i)))) { updateSelectedIndexes(i, 'data') } else { setSelectedDataIndexes([]); setSelectedGraphIndexes([]) } }}
+                                        <Button key={m.idx} disableRipple onClick={(ev) => { if (selectedDataIndexes.length == 0 || ev.crtlKey || ev.metaKey || (selectedDataIndexes.length == 1 && selectedGraphIndexes.includes(i))) { updateSelectedIndexes(i, 'data') } else { setSelectedDataIndexes([]); setSelectedGraphIndexes([]) } }}
                                             sx={{
                                                 flexDirection: 'column',
                                                 width: '100%',
@@ -307,7 +344,7 @@ function App() {
                                             }}
                                             onMouseMove={
                                                 (ev) => {
-                                                    if (!sheetDrag && mouseDown && selectedDataIndexes.indexOf(i) == -1) {
+                                                    if (saveClicked && mouseDown && selectedDataIndexes.indexOf(i) == -1) {
                                                         let copy = [...selectedDataIndexes]
                                                         copy.push(i)
                                                         setSelectedDataIndexes(copy)
@@ -315,7 +352,7 @@ function App() {
                                                 }
                                             }
                                         >
-                                            <Sheet data={m} exportClicked={exportt} setExportClicked={setExport} setSheetDrag={setSheetDrag} index={i} selectedIndexes={selectedDataIndexes} addToTemplate={addToTemplate} onClick={(ev) => { console.log('hello'); ev.stopPropagation() }} />
+                                            <Sheet projectSaveClicked = {projectSaveClicked} data={m.data} exportClicked={exportt} setExportClicked={setExport} index={i} selectedIndexes={selectedDataIndexes} addToTemplate={addToTemplate} key={m.idx} removeIdxFromData={removeIdxFromData}/>
                                         </Button>
                                     )
                                 })
@@ -327,6 +364,36 @@ function App() {
                     </Routes>
                 </BrowserRouter>
             </ThemeProvider >
+            <TrapFocus open disableAutoFocus disableEnforceFocus>
+                <Fade appear={false} in={saveClicked}>
+                    <Paper
+                        role="dialog"
+                        aria-modal="false"
+                        aria-label="Cookie banner"
+                        square
+                        variant="outlined"
+                        tabIndex={-1}
+                        sx={{
+                            position: 'fixed',
+                            bottom: 0,
+                            right: 0,
+                            m: 0,
+                            p: 2,
+                            borderWidth: 2,
+                            width: '100%',
+                            zIndex: 10,
+                            bgcolor: 'lightgray'
+                        }}
+                    >
+                        <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
+                            <Grid item xs={8} />
+                            <Grid item xs={1}>
+                                <Button onClick = {continueClicked}>Continue?</Button>
+                            </Grid>
+                        </Grid>
+                    </Paper>
+                </Fade>
+            </TrapFocus>
         </div>
 
     );
