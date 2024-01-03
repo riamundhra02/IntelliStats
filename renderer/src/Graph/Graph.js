@@ -59,7 +59,7 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
             }, idx, 'graph')
         }
 
-    }, [selectedIndexes, idx, model, method, order, numberVar, regressionExpr, checked, xdata, ydata, tabValue, xAxis, zAxis])
+    }, [selectedIndexes, idx, model, method, order, numberVar, regressionExpr, checked, xdata, ydata, tabValue, xAxis, zAxis, projectSaveClicked])
     useEffect(() => {
         if (model != "multiple") {
             setNumberVar(1)
@@ -144,13 +144,14 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
 
     useEffect(() => {
         if (model == "linear" || model == "multiple") {
-            if (data[0].length > 0) {
+            if (data[0]?.length > 0) {
                 let res = regressionCalculator(data.map((iv, i) => iv.map((point, i) => {
                     return point[0]
                 })), [data[0].map((point, i) => {
                     return point[1]
                 })], checked)
                 if (!res) {
+                    setRegressionExpr('')
                     if (xdata.reduce((prev, current) => { return (prev && current.data.length > 0) }, true)) {
                         let alerted = false
                         xdata.forEach((x_iv, i) => {
@@ -168,13 +169,14 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
 
                     }
                 } else {
+                    
                     let expr = "y = "
                     for (let i = 0; i < res.length - checked; i++) {
                         const beta = res[i]
-                        expr += `${parseFloat(beta).toFixed(2)}x_${i + 1} + `
+                        expr += `${parseFloat(parseFloat(beta).toPrecision(3))}x_${i + 1} + `
                     }
                     if (checked) {
-                        expr += `${parseFloat(res[res.length - 1]).toFixed(2)}`
+                        expr += `${parseFloat(parseFloat(res[res.length-1]).toPrecision(3))}`
                     } else {
                         expr = expr.slice(0, -3)
                     }
@@ -208,7 +210,7 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
                                 <ScatterPlotChart expr={regressionExpr} points={data} />
                             </CustomTabPanel>
                             <CustomTabPanel value={tabValue} index={1}>
-                                <PcaGraph data={data} key={data} setXAxis={setXAxis} setZAxis={setZAxis} xAxis={xAxis} zAxis={setZAxis} />
+                                <PcaGraph data={data} key={data} setXAxis={setXAxis} setZAxis={setZAxis} xAxis={xAxis} zAxis={zAxis} />
                             </CustomTabPanel>
                         </>
                         : <ScatterPlotChart expr={regressionExpr} points={data} sx={{ width: '100%' }} />
@@ -216,18 +218,16 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
             </Grid>
             {model == 'multiple' && tabValue == 1 ? <></> : <Grid item xs={1} />}
         </Grid>
-        <Grid container alignItems="center" alignContent='center' direction='row' columns={multipleReg.length + 8}>
-            <Grid item xs={4} />
+        <Grid container alignItems="center" justifyContent="center" alignContent='center' direction='row' columns={12}>
             {multipleReg.map((v, i) => {
                 return <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropX(ev, i) }} onDragOver={allowDrop}>Insert X{i + 1} Data</Button></Grid>
             })}
-            <Grid item xs={4} />
         </Grid>
 
     </>
     return (
         <>
-            <div onDoubleClick={(ev) => setBannerOpen(true)} style={{ width: '100%' }}>
+            <div onDoubleClick={(ev) => setBannerOpen(true)} style={{ width: '100%' }} className='graph'>
                 <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
                     <Grid item xs={8} />
                     <Grid item xs={1}>

@@ -27,8 +27,7 @@ function inverse(matrix) {
                 maxElementIndex = j;
             }
         }
-
-        if (augmentedMatrix[maxElementIndex][i] === 0) {
+        if (Math.abs(augmentedMatrix[maxElementIndex][i]) < 0.000000001 ) {
             return;
         }
 

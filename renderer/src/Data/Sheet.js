@@ -32,6 +32,7 @@ const useStyles = makeStyles(theme => ({
 
 export default function Sheet({ data, exportClicked, setExportClicked, index, selectedIndexes, addToTemplate, removeIdxFromData, projectSaveClicked }) {
     const [range, setRange] = useState()
+    const [testVis, setTestVis] = useState(false)
     const classes = useStyles();
     const [height, setHeight] = React.useState(defaultHeight);
 
@@ -52,18 +53,36 @@ export default function Sheet({ data, exportClicked, setExportClicked, index, se
                 data: data
             }, index, 'data')
         }
-
-    }, [selectedIndexes, index, data])
+    }, [selectedIndexes, index, data, projectSaveClicked])
 
     useEffect(() => {
-        if (exportClicked == 'xlsx') {
-            gridRef.current.api.exportDataAsExcel();
-            setExportClicked('')
+        const exportt = async () => {
+            if (exportClicked == 'xlsx') {
+                gridRef.current.api.exportDataAsExcel();
+                setExportClicked('')
+            }
+            if (exportClicked == 'csv') {
+                gridRef.current.api.exportDataAsCsv();
+                setExportClicked('')
+            }
+            if (exportClicked == 'test_xlsx') {
+                let blob = gridRef.current.api.getDataAsExcel();
+                const string = await new Response(blob).arrayBuffer();
+                window.ipcRenderer.send('test_export', { data: string, save: 'xlsx' })
+                setExportClicked('')
+                setTestVis(true)
+
+            }
+            if (exportClicked == 'test_csv') {
+                let blob = gridRef.current.api.getDataAsCsv();
+                const string = await new Response(blob).arrayBuffer();
+                window.ipcRenderer.send('test_export', { data: string, save: 'csv' })
+                setExportClicked('')
+                setTestVis(true)
+
+            }
         }
-        if (exportClicked == 'csv') {
-            gridRef.current.api.exportDataAsCsv();
-            setExportClicked('')
-        }
+        exportt()
     }, [exportClicked])
 
     function rangeSelectionChanged(event) {
@@ -146,6 +165,7 @@ export default function Sheet({ data, exportClicked, setExportClicked, index, se
                 </Grid>
                 <AgGridReact ref={gridRef} enableCharts={true} rowDragManaged={true} suppressRowClickSelection={true} rowData={data} columnDefs={columns} enableRangeSelection={true} onRangeSelectionChanged={rangeSelectionChanged} keepLastSelected={false}></AgGridReact>
                 <div onMouseDown={e => handleMouseDown(e)} className={classes.dragger}></div>
+
             </div>
 
         </>

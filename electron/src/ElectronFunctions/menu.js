@@ -5,72 +5,40 @@ const papaparse = require('papaparse')
 const xlsx = require('xlsx')
 
 let d = 0
-function importFunction(win) {
-    dialog.showOpenDialog({
-        properties: ['openFile'],
-        filters: [{
-            name: 'Data',
-            extensions: ['csv', 'xlsx']
-        }]
-    }).then((fileName) => {
-        if (fileName.canceled || fileName === undefined) {
-            console.log("No file selected");
-            return;
-        }
+async function importFunction(win, file) {
+    let fileName = file;
+    if (!file) {
+        fileName = await dialog.showOpenDialog({
+            properties: ['openFile'],
+            filters: [{
+                name: 'Data',
+                extensions: ['csv', 'xlsx']
+            }]
+        })
+    }
+    if (fileName.canceled || fileName === undefined) {
+        console.log("No file selected");
+        return;
+    }
 
-        if (fileName.filePaths[0].split('.').pop() == "xlsx") {
-            const wb = xlsx.readFile(fileName.filePaths[0]);
-            const wsname = wb.SheetNames[0];
-            const ws = wb.Sheets[wsname];
-            const data = xlsx.utils.sheet_to_json(ws);
-            win.webContents.send('Import', { data: data, idx: d++ })
-        } else {
-            fs.readFile(fileName.filePaths[0], 'utf8', (err, data) => {
-                if (err) {
-                    alert("An error ocurred reading the file :" + err.message);
-                    return;
-                }
-                data = papaparse.parse(data, {
-                    delimiter: "",	// auto-detect
-                    newline: "",	// auto-detect
-                    quoteChar: '"',
-                    escapeChar: '"',
-                    header: true,
-                    transformHeader: undefined,
-                    dynamicTyping: true,
-                    preview: 0,
-                    encoding: "",
-                    worker: false,
-                    comments: false,
-                    step: undefined,
-                    complete: undefined,
-                    error: undefined,
-                    download: false,
-                    downloadRequestHeaders: undefined,
-                    downloadRequestBody: undefined,
-                    skipEmptyLines: true,
-                    chunk: undefined,
-                    chunkSize: undefined,
-                    fastMode: undefined,
-                    beforeFirstChunk: undefined,
-                    withCredentials: undefined,
-                    transform: undefined,
-                    delimitersToGuess: [',', '\t', '|', ';', papaparse.RECORD_SEP, papaparse.UNIT_SEP],
-                    skipFirstNLines: 0
-                })
-                win.webContents.send('Import', {data: data.data, idx: d++}) 
-            })
-        }
+    const wb = xlsx.readFile(fileName.filePaths[0], { type: fileName.filePaths[0].split('.').pop() });
+    const wsname = wb.SheetNames[0];
+    const ws = wb.Sheets[wsname];
+    const data = xlsx.utils.sheet_to_json(ws);
+    if (!file) {
+        win?.webContents.send('Import', { data: data, idx: d++ })
+    } else {
+        return data
+    }
 
-    });
 }
 
 function exportDataFunctionXLSX(win) {
-    win.webContents.send('ExportData', "xlsx")
+    win.webContents.send('ExportData', process.env.mode == 'test' ? "test_xlsx" : 'xlsx')
 }
 
 function exportDataFunctionCSV(win) {
-    win.webContents.send('ExportData', "csv")
+    win.webContents.send('ExportData', process.env.mode == 'test' ? "test_csv" : 'csv')
 }
 
 let v = 0;
@@ -128,13 +96,13 @@ function importTemplate(win) {
                 return;
             }
             let parsedData = JSON.parse(data)
-            let formattedGraphs = parsedData.graph.map((state, i) =>{
-                return {states: state, idx: v++}
+            let formattedGraphs = parsedData.graph.map((state, i) => {
+                return { states: state, idx: v++ }
             })
-            let formattedDataSources = parsedData.data.map((state, i) =>{
-                return {states: state, idx: d++}
+            let formattedDataSources = parsedData.data.map((state, i) => {
+                return { states: state, idx: d++ }
             })
-            let formattedData = {data: formattedDataSources, graph: formattedGraphs}
+            let formattedData = { data: formattedDataSources, graph: formattedGraphs }
             win.webContents.send('importTemplate', formattedData)
         })
 
@@ -142,4 +110,38 @@ function importTemplate(win) {
     });
 }
 
-module.exports = { importFunction, exportDataFunctionXLSX, exportDataFunctionCSV, regression, saveAsTemplate, importTemplate, exportPDF, saveProject }
+function openProject(win) {
+    dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [{
+            name: 'Project',
+            extensions: ['project']
+        }]
+    }).then((fileName) => {
+        if (fileName.canceled || fileName === undefined) {
+            console.log("No file selected");
+            return;
+        }
+        fs.readFile(fileName.filePaths[0], 'utf8', (err, data) => {
+            if (err) {
+                alert("An error ocurred reading the file :" + err.message);
+                return;
+            }
+            let parsedData = JSON.parse(data)
+            let v = 0;
+            let formattedGraphs = parsedData.graph.map((state, i) => {
+                return { states: state, idx: v++ }
+            })
+            let d = 0;
+            let formattedDataSources = parsedData.data.map((state, i) => {
+                return { ...state, idx: d++ }
+            })
+            let formattedData = { data: formattedDataSources, graph: formattedGraphs, test:fileName.test ? fileName.test : false }
+            win.webContents.send('openProject', formattedData)
+        })
+
+
+    });
+}
+
+module.exports = { importFunction, exportDataFunctionXLSX, exportDataFunctionCSV, regression, saveAsTemplate, importTemplate, exportPDF, saveProject, openProject }

@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
 const menuFuncs = require('./ElectronFunctions/menu')
 const fs = require('fs');
+const xlsx = require('xlsx');
 
 let win;
 function createWindow() {
@@ -28,7 +29,6 @@ function createWindow() {
         }).then(file => {
             if (!file.canceled) {
 
-                // Creating and Writing to the sample.txt file 
                 fs.writeFile(file.filePath.toString(),
                     JSON.stringify(m), function (err) {
                         if (err) throw err;
@@ -38,9 +38,33 @@ function createWindow() {
             console.log(err)
         })
     })
+
+    ipcMain.on('test_export', (event, m) => {
+        dialog.showSaveDialog({
+            title: 'Select File Path',
+            buttonLabel: 'Save',
+            filters: [
+                {
+                    name: `${m.save} Files`,
+                    extensions: [m.save]
+                },],
+            properties: []
+        }).then(async (file) => {
+            if (!file.canceled) {
+
+                const wb = xlsx.read(m.data)
+                // console.log(wb)
+                xlsx.writeFile(wb, file.filePath, {type: m.save})
+            }
+        }).catch(err => {
+            console.log(err)
+        })
+    })
     win.webContents.openDevTools()
     win.webContents.on('did-finish-load', () => { win.webContents.send('ping', 'ping') });
     win.on('closed', () => {
+        ipcMain.removeAllListeners('saveTemplate')
+        ipcMain.removeAllListeners('test_export')
         win = null
     });
 
@@ -48,6 +72,8 @@ function createWindow() {
 app.on('ready', createWindow);
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
+        ipcMain.removeAllListeners('saveTemplate')
+        ipcMain.removeAllListeners('test_export')
         app.quit()
     }
 });
@@ -79,26 +105,34 @@ const template = [
     // { role: 'fileMenu' }
     {
         label: 'File',
+        id: 'File',
         submenu: [
             {
                 label: 'Open Project',
+                id: 'Open Project',
+                click: () => { menuFuncs.openProject(win) }
             },
             {
                 label: 'Import Data',
-                click: () => { menuFuncs.importFunction(win) }
+                id: 'Import Data',
+                click: async () => { await menuFuncs.importFunction(win, null) }
             },
             {
                 label: 'Export',
+                id: 'Export',
                 submenu: [
                     {
                         label: 'Export Data',
+                        id: 'Export Data',
                         submenu: [
                             {
                                 label: '.xlsx',
+                                id: '.xlsx',
                                 click: () => { menuFuncs.exportDataFunctionXLSX(win) }
                             },
                             {
                                 label: '.csv',
+                                id: '.csv',
                                 click: () => { menuFuncs.exportDataFunctionCSV(win) },
                             }
                         ]
@@ -106,19 +140,23 @@ const template = [
                     },
                     {
                         label: 'Export Page',
+                        id: 'Export Page',
                         click: () => { menuFuncs.exportPDF(win) }
                     }
                 ]
             },
             {
                 label: 'Save',
+                id: 'Save',
                 submenu: [
                     {
                         label: 'Save Project',
-                        click: () => { menuFuncs.saveProject(win)}
+                        id: 'Save Project',
+                        click: () => { menuFuncs.saveProject(win) }
                     },
                     {
                         label: 'Save as Template',
+                        id: 'Save as Template',
                         click: () => { menuFuncs.saveAsTemplate(win) }
                     }
                 ]
@@ -128,13 +166,16 @@ const template = [
     },
     {
         label: 'Insert',
+        id: 'Insert',
         submenu: [
             {
                 label: "From Template",
+                id: "From Template",
                 click: () => { menuFuncs.importTemplate(win) }
             },
             {
                 label: "Regression Model",
+                id: "Regression Model",
                 click: () => { menuFuncs.regression(win, __dirname) }
             },
         ]

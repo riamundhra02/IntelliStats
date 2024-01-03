@@ -37,7 +37,7 @@ export function ScatterPlotChart({ expr, points }) {
     const ydata = points[0].map((pair, i) => { return pair[1] })
     const calcRef = useRef()
     const [calculator, setCalculator] = useState(null)
-    const pointsExpr = points[0].map((point, i) => `(${point.join(",")})`).join(',')
+    // const pointsExpr = points[0].map((point, i) => `(${point.join(",")})`).join(',')
 
     useEffect(() => {
         if (calculator) {
@@ -72,6 +72,9 @@ export function ScatterPlotChart({ expr, points }) {
 
         } else {
             let calc = Desmos.GraphingCalculator(calcRef.current, { keypad: false })
+            for (let i = 1; i < xdata.length; i++) {
+                calc.setExpression({ latex: `x_${i + 1} = ${Math.min(...xdata[i])}`, sliderBounds: { min: `${Math.min(...xdata[i])}`, max: `${Math.max(...xdata[i])}` } })
+            }
             calc.setExpression({
                 type: 'table',
                 id: 'points1',
@@ -101,7 +104,7 @@ export function ScatterPlotChart({ expr, points }) {
         return () => {
             calculator?.setBlank()
         }
-    }, [expr])
+    }, [expr, points])
 
     // const chartRef = useRef(null);
 

@@ -30,17 +30,18 @@ function App() {
     const [template, setTemplate] = useState({ graph: [], data: [] })
     const [saveClicked, setSaveClicked] = useState(false)
     const [projectSaveClicked, setProjectSaveClicked] = useState(false)
+    const [continueClicked, setContinueClicked] = useState(false)
     const pdfRef = useRef()
 
     const options = {
         method: 'save',
         resolution: Resolution.HIGH,
         page: {
-           margin: Margin.SMALL,
-           format: 'letter',
-           orientation: 'portait',
+            margin: Margin.SMALL,
+            format: 'letter',
+            orientation: 'portait',
         }
-     };
+    };
 
     function startRect(ev) {
         setSelectedRect({
@@ -100,69 +101,79 @@ function App() {
         setDataSources(clone)
     }
 
-    function continueClicked(ev) {
-        if (selectedGraphIndexes.length + selectedDataIndexes.length == 0 && !projectSaveClicked) {
-            alert('Nothing to save!')
-        } else {
-            let conf = projectSaveClicked ? true : window.confirm("Save selection as template?")
-            if (conf) {
-                let filteredData = template.data.filter((v, i) => { return selectedDataIndexes.includes(i) })
-                let filteredGraphs = template.graph.filter((v, i) => { return selectedGraphIndexes.includes(i) })
-                let alertNeeded = false
-                let formattedGraphs = filteredGraphs.map((v, i) => {
-                    let xdata_new = v.xdata.map((x, j) => {
-                        if (selectedDataIndexes.includes(x.dataset)) {
-                            return x
-                        } else {
-                            alertNeeded = alertNeeded || x.dataset > -1
-                            return { data: [], dataset: -1 }
+    useEffect(() => {
+        if (continueClicked || projectSaveClicked) {
+            console.log(selectedDataIndexes, selectedGraphIndexes)
+            if (selectedGraphIndexes.length + selectedDataIndexes.length == 0 && !projectSaveClicked) {
+                alert('Nothing to save!')
+            } else {
+                let conf = projectSaveClicked ? true : window.confirm("Save selection as template?")
+                if (conf) {
+                    setTemplate((template) => {
+                        let filteredData = projectSaveClicked ? template.data : template.data.filter((v, i) => { return selectedDataIndexes.includes(i) })
+                        let filteredGraphs = projectSaveClicked ? template.graph : template.graph.filter((v, i) => { return selectedGraphIndexes.includes(i) })
+                        let alertNeeded = false
+                        let formattedGraphs = projectSaveClicked ? filteredGraphs : filteredGraphs.map((v, i) => {
+                            let xdata_new = v.xdata.map((x, j) => {
+                                if (selectedDataIndexes.includes(x.dataset)) {
+                                    return x
+                                } else {
+                                    alertNeeded = alertNeeded || x.dataset > -1
+                                    return { data: [], dataset: -1 }
+                                }
+                            })
+
+                            let ydata_new
+                            if (selectedDataIndexes.includes(v.ydata.dataset)) {
+                                ydata_new = v.ydata
+                            } else {
+                                alertNeeded = alertNeeded || v.ydata.dataset > -1
+                                ydata_new = { data: [], dataset: -1 }
+                            }
+
+                            let copy = { ...v }
+                            copy.xdata = xdata_new
+                            copy.ydata = ydata_new
+
+                            return copy
+                        })
+
+                        let dataConfirm = alertNeeded ? window.confirm("At least one regression model selected requires data from outside the selection. If you continue, the model will be saved without the data. Continue?") : true
+
+                        if (dataConfirm) {
+                            window.ipcRenderer.send('saveTemplate', { graph: formattedGraphs, data: filteredData, save: projectSaveClicked ? 'project' : 'template' })
                         }
+                        return { data: [], graph: [] }
                     })
-
-                    let ydata_new
-                    if (selectedDataIndexes.includes(v.ydata.dataset)) {
-                        ydata_new = v.ydata
-                    } else {
-                        alertNeeded = alertNeeded || v.ydata.dataset > -1
-                        ydata_new = { data: [], dataset: -1 }
-                    }
-
-                    let copy = { ...v }
-                    copy.xdata = xdata_new
-                    copy.ydata = ydata_new
-
-                    return copy
-                })
-
-                let dataConfirm = true
-                if (alertNeeded) {
-                    dataConfirm = window.confirm("At least one regression model selected requires data from outside the selection. If you continue, the model will be saved without the data. Continue?")
-
-                }
-
-                if (dataConfirm) {
-                    window.ipcRenderer.send('saveTemplate', { graph: formattedGraphs, data: filteredData, save: projectSaveClicked ? 'project' : 'template' })
                 }
             }
+            setSaveClicked(false)
+            setContinueClicked(false)
+            setProjectSaveClicked(false)
+
         }
-        setSaveClicked(false)
-    }
+    }, [selectedGraphIndexes, selectedDataIndexes, saveClicked, continueClicked, projectSaveClicked, template])
 
     function addToTemplate(state, idx, type) {
-        if (saveClicked) {
+        if (saveClicked || projectSaveClicked) {
             if (type == 'graph') {
-                let copy = [...template.graph]
-                copy[idx] = state
-                setTemplate({ data: template.data, graph: copy })
+                setTemplate((ptemplate) => {
+                    let copy = [...ptemplate.graph]
+                    copy[idx] = state
+                    return { data: ptemplate.data, graph: copy }
+                })
             } else {
-                let copy = [...template.data]
-                copy[idx] = state
-                setTemplate({ data: copy, graph: template.graph })
+                setTemplate((ptemplate) => {
+                    let copy = [...ptemplate.data]
+                    copy[idx] = state
+                    return { data: copy, graph: ptemplate.graph }
+                })
             }
         }
     }
 
     function updateSelectedIndexes(i, type) {
+        console.log(i,type)
         if (saveClicked) {
             let index, copy, setter;
             if (type == 'graph') {
@@ -175,9 +186,11 @@ function App() {
                 setter = setSelectedDataIndexes
             }
             if (index > -1) {
+                console.log(i,type)
                 copy.splice(index, 1)
                 setter(copy)
             } else {
+                console.log(i,type)
                 copy.push(i)
                 setter(copy)
             }
@@ -197,12 +210,18 @@ function App() {
     }, []);
 
     useEffect(() => {
+        window.ipcRenderer.send('loaded', 'loaded')
+    }, [])
+
+    useEffect(() => {
         window.ipcRenderer.on('Import', (event, m) => {
             setDataSources(
                 [
                     ...dataSources,
-                    {idx: m.idx,
-                    data: m.data}
+                    {
+                        idx: m.idx,
+                        data: m.data
+                    }
                 ]
             );
         });
@@ -220,29 +239,41 @@ function App() {
         });
 
         window.ipcRenderer.on('importTemplate', (event, m) => {
-            let dataCopy = [...dataSources]
-            setDataSources([
-                ...dataSources,
-                ...m.data
-            ])
+            setDataSources((dataSources) => {
+                return [
+                    ...dataSources,
+                    ...m.data
+                ]
+            })
 
-            setRegression(
-                [
+            setRegression((regression) => {
+                return [
                     ...regression,
                     ...m.graph
-                ])
+                ]
+            })
+        });
+
+        window.ipcRenderer.on('openProject', (event, m) => {
+            let conf = m.test ? true : window.confirm("Opening a new project will cause any unsaved data in the current window to be lost. Continue?")
+            if (conf) {
+                setDataSources(m.data)
+
+                setRegression(m.graph)
+            }
+
         });
 
         window.ipcRenderer.on('Regression', (event, m) => {
-            setRegression(
-                [
+            setRegression((regression) => {
+                return [
                     ...regression,
                     {
                         idx: m,
                         states: graphStates
                     }
                 ]
-            )
+            })
         })
 
         window.ipcRenderer.on('SaveAsTemplate', (event, m) => {
@@ -252,7 +283,6 @@ function App() {
 
         window.ipcRenderer.on('SaveProject', (event, m) => {
             setProjectSaveClicked(true)
-            continueClicked()
         })
 
         return function cleanup() {
@@ -263,6 +293,7 @@ function App() {
             window.ipcRenderer.removeAllListeners('SaveProject')
             window.ipcRenderer.removeAllListeners('importTemplate')
             window.ipcRenderer.removeAllListeners('exportPDF')
+            window.ipcRenderer.removeAllListeners('openProject')
 
         }
     }, [dataSources, regression, selectedGraphIndexes, template]);
@@ -293,6 +324,7 @@ function App() {
                     }
                 }
             }
+            onClick={(ev) => { ev.stopPropagation(); if (selectedGraphIndexes.length + selectedDataIndexes.length == 0 || ev.crtlKey || ev.metaKey || (selectedGraphIndexes.length + selectedDataIndexes.length == 1 && selectedGraphIndexes.includes(i))) { updateSelectedIndexes(i, 'graph') } else { setSelectedDataIndexes([]); setSelectedGraphIndexes([]) } }}
         // onMouseOut={(ev) => {
         //     if (mouseDown) {
         //         updateSelectedIndexes(i, 'graph')
@@ -300,7 +332,7 @@ function App() {
         //     }
         // }}
         >
-            <Graph idx={i} projectSaveClicked = {projectSaveClicked} removeIdxFromGraphs={removeIdxFromGraphs} states={v.states} selectedIndexes={selectedGraphIndexes} addToTemplate={addToTemplate} />
+            <Graph idx={i} projectSaveClicked={projectSaveClicked} removeIdxFromGraphs={removeIdxFromGraphs} states={v.states} selectedIndexes={selectedGraphIndexes} addToTemplate={addToTemplate} className="graph"/>
         </Button >
     })
 
@@ -328,10 +360,10 @@ function App() {
                 <BrowserRouter>
                     <Routes>
                         <Route path='/' element={
-                            <Paper ref = {pdfRef} elevation={3} sx={{ width: 4 / 5, m: 'auto', mt: '3rem', height: 'auto', padding: '1rem', minHeight: 1000 }}>
+                            <Paper ref={pdfRef} elevation={3} sx={{ width: 4 / 5, m: 'auto', mt: '3rem', height: 'auto', padding: '1rem', minHeight: 1000 }}>
                                 {dataSources.map((m, i) => {
                                     return (
-                                        <Button key={m.idx} disableRipple onClick={(ev) => { if (selectedDataIndexes.length == 0 || ev.crtlKey || ev.metaKey || (selectedDataIndexes.length == 1 && selectedGraphIndexes.includes(i))) { updateSelectedIndexes(i, 'data') } else { setSelectedDataIndexes([]); setSelectedGraphIndexes([]) } }}
+                                        <Button key={m.idx} disableRipple onClick={(ev) => { ev.stopPropagation(); if (selectedDataIndexes.length + selectedGraphIndexes.length == 0 || ev.crtlKey || ev.metaKey || (selectedDataIndexes.length + selectedGraphIndexes.length == 1 && selectedDataIndexes.includes(i))) { updateSelectedIndexes(i, 'data') } else { setSelectedDataIndexes([]); setSelectedGraphIndexes([]) } }}
                                             sx={{
                                                 flexDirection: 'column',
                                                 width: '100%',
@@ -352,7 +384,7 @@ function App() {
                                                 }
                                             }
                                         >
-                                            <Sheet projectSaveClicked = {projectSaveClicked} data={m.data} exportClicked={exportt} setExportClicked={setExport} index={i} selectedIndexes={selectedDataIndexes} addToTemplate={addToTemplate} key={m.idx} removeIdxFromData={removeIdxFromData}/>
+                                            <Sheet projectSaveClicked={projectSaveClicked} data={m.data} exportClicked={exportt} setExportClicked={setExport} index={i} selectedIndexes={selectedDataIndexes} addToTemplate={addToTemplate} key={m.idx} removeIdxFromData={removeIdxFromData} className="sheet"/>
                                         </Button>
                                     )
                                 })
@@ -388,7 +420,7 @@ function App() {
                         <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
                             <Grid item xs={8} />
                             <Grid item xs={1}>
-                                <Button onClick = {continueClicked}>Continue?</Button>
+                                <Button onClick={() => { setContinueClicked(true) }}>Continue?</Button>
                             </Grid>
                         </Grid>
                     </Paper>
