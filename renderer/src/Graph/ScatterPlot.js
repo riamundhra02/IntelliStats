@@ -40,9 +40,12 @@ export function ScatterPlotChart({ expr, points }) {
     // const pointsExpr = points[0].map((point, i) => `(${point.join(",")})`).join(',')
 
     useEffect(() => {
+        console.log(expr, points)
         if (calculator) {
             for (let i = 1; i < xdata.length; i++) {
-                calculator.setExpression({ latex: `x_${i + 1} = ${Math.min(...xdata[i])}`, sliderBounds: { min: `${Math.min(...xdata[i])}`, max: `${Math.max(...xdata[i])}` } })
+                if (!xdata[i].reduce((prev, current) => { return prev && current == 0 }, true)) {
+                    calculator.setExpression({ latex: `x_${i + 1} = ${Math.min(...xdata[i])}`, sliderBounds: { min: `${Math.min(...xdata[i])}`, max: `${Math.max(...xdata[i])}` } })
+                }
             }
             calculator.setExpression({
                 type: 'table',
@@ -73,7 +76,9 @@ export function ScatterPlotChart({ expr, points }) {
         } else {
             let calc = Desmos.GraphingCalculator(calcRef.current, { keypad: false })
             for (let i = 1; i < xdata.length; i++) {
-                calc.setExpression({ latex: `x_${i + 1} = ${Math.min(...xdata[i])}`, sliderBounds: { min: `${Math.min(...xdata[i])}`, max: `${Math.max(...xdata[i])}` } })
+                if (!xdata[i].reduce((prev, current) => { return prev && current == 0 }, true)) {
+                    calc.setExpression({ latex: `x_${i + 1} = ${Math.min(...xdata[i])}`, sliderBounds: { min: `${Math.min(...xdata[i])}`, max: `${Math.max(...xdata[i])}` } })
+                }
             }
             calc.setExpression({
                 type: 'table',
@@ -104,7 +109,7 @@ export function ScatterPlotChart({ expr, points }) {
         return () => {
             calculator?.setBlank()
         }
-    }, [expr, points])
+    }, [expr, points, calculator])
 
     // const chartRef = useRef(null);
 
@@ -151,7 +156,7 @@ export function ScatterPlotChart({ expr, points }) {
         <>
             <br />
             <br />
-            
+
             <div ref={calcRef} style={{ width: '100%', height: '400px' }}></div>
         </>
     );

@@ -33,7 +33,7 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
     const [regressionExpr, setRegressionExpr] = useState(states.regressionExpr)
     const [checked, setChecked] = useState(states.checked)
     const [mouseDown, setMouseDown] = useState(false)
-    const [bannerOpen, setBannerOpen] = useState(true)
+    const [bannerOpen, setBannerOpen] = useState(false)
     const [tabValue, setTabValue] = useState(states.tabValue)
     const [xAxis, setXAxis] = useState(states.xAxis)
     const [zAxis, setZAxis] = useState(states.zAxis)
@@ -309,7 +309,9 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
                                 p: 0,
                                 borderWidth: 2,
                                 width: '60%',
-                                zIndex: 10
+                                height: '50%', 
+                                zIndex: 10,
+                                overflow: 'scroll'
                             }}
                         >
                             <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
