@@ -102,6 +102,7 @@ function App() {
     }
 
     useEffect(() => {
+        console.log(selectedDataIndexes, selectedGraphIndexes)
         if (continueClicked || projectSaveClicked) {
             console.log(selectedDataIndexes, selectedGraphIndexes)
             if (selectedGraphIndexes.length + selectedDataIndexes.length == 0 && !projectSaveClicked) {
@@ -150,6 +151,8 @@ function App() {
             setSaveClicked(false)
             setContinueClicked(false)
             setProjectSaveClicked(false)
+            setSelectedGraphIndexes([])
+            setSelectedDataIndexes([])
 
         }
     }, [selectedGraphIndexes, selectedDataIndexes, saveClicked, continueClicked, projectSaveClicked, template])
@@ -186,13 +189,13 @@ function App() {
                 setter = setSelectedDataIndexes
             }
             if (index > -1) {
-                console.log(i,type)
                 copy.splice(index, 1)
                 setter(copy)
+                console.log(copy)
             } else {
-                console.log(i,type)
                 copy.push(i)
                 setter(copy)
+                console.log(copy)
             }
         }
     }
@@ -401,7 +404,6 @@ function App() {
                     <Paper
                         role="dialog"
                         aria-modal="false"
-                        aria-label="Cookie banner"
                         square
                         variant="outlined"
                         tabIndex={-1}
@@ -416,11 +418,12 @@ function App() {
                             zIndex: 10,
                             bgcolor: 'lightgray'
                         }}
+                        onClick={(ev) => { ev.stopPropagation()}}
                     >
                         <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
                             <Grid item xs={8} />
                             <Grid item xs={1}>
-                                <Button onClick={() => { setContinueClicked(true) }}>Continue?</Button>
+                                <Button onClick={(ev) => { ev.stopPropagation(); setContinueClicked(true) }}>Continue?</Button>
                             </Grid>
                         </Grid>
                     </Paper>
