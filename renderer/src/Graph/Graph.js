@@ -169,14 +169,14 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
 
                     }
                 } else {
-                    
+
                     let expr = "y = "
                     for (let i = 0; i < res.length - checked; i++) {
                         const beta = res[i]
                         expr += `${parseFloat(parseFloat(beta).toPrecision(3))}x_${i + 1} + `
                     }
                     if (checked) {
-                        expr += `${parseFloat(parseFloat(res[res.length-1]).toPrecision(3))}`
+                        expr += `${parseFloat(parseFloat(res[res.length - 1]).toPrecision(3))}`
                     } else {
                         expr = expr.slice(0, -3)
                     }
@@ -308,13 +308,12 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
                                 m: 1,
                                 p: 0,
                                 borderWidth: 2,
-                                width: '60%',
-                                height: '50%', 
+                                width: '70%',
+                                height: '59%',
                                 zIndex: 10,
-                                overflow: 'scroll'
                             }}
                         >
-                            <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
+                            <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center' sx={{ height: '12%', p:1}}>
                                 <Grid item xs={8} />
                                 <Grid item xs={1}>
                                     <IconButton aria-label="delete" onClick={(ev) => { setBannerOpen(false) }}>
@@ -322,7 +321,9 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
                                     </IconButton>
                                 </Grid>
                             </Grid>
-                            {component}
+                            <Paper sx={{ height: '88%', overflow: 'scroll', borderWidth: 0}}>
+                                {component}
+                            </Paper>
                         </Paper>
                     </Fade>
                 </TrapFocus>
