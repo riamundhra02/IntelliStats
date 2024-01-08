@@ -30,6 +30,37 @@ const useStyles = makeStyles(theme => ({
     }
 }));
 
+const Renderer = (props) => {
+    const [child, setChild] = useState(null)
+    const inRange = () => {
+        let ret = false
+        if (props.range) {
+            props.range.every(function (r) {
+                // get starting and ending row, remember end could be before start
+                var startRow = Math.min(r.startRow.rowIndex, r.endRow.rowIndex);
+                var endRow = Math.max(r.startRow.rowIndex, r.endRow.rowIndex);
+                // console.log(r.columns.includes(props.column) && props.node.rowIndex >= startRow && props.node.rowIndex <= endRow)
+                if (r.columns.includes(props.column) && props.node.rowIndex >= startRow && props.node.rowIndex <= endRow) {
+                    ret = true
+                    return false
+                }
+                return true
+            })
+        }
+        return ret
+    };
+    const isInRange = inRange()
+    if (props?.eGridCell?.children[0]?.children.length == 2 && !isInRange) {
+        setChild(props?.eGridCell?.children[0]?.children[0])
+        props?.eGridCell?.children[0]?.removeChild(props?.eGridCell?.children[0]?.children[0])
+    } else if (props?.eGridCell?.children[0]?.children.length == 1 && isInRange) {
+        props?.eGridCell?.children[0]?.insertAdjacentElement('afterbegin', child)
+
+    }
+
+    return <span unselectable={isInRange ? "on" : "off"}>{props.value}</span>
+}
+
 export default function Sheet({ data, exportClicked, setExportClicked, index, selectedIndexes, addToTemplate, removeIdxFromData, projectSaveClicked }) {
     const [range, setRange] = useState()
     const [testVis, setTestVis] = useState(false)
@@ -86,9 +117,8 @@ export default function Sheet({ data, exportClicked, setExportClicked, index, se
     }, [exportClicked])
 
     function rangeSelectionChanged(event) {
-        if (event.finished) {
-            setRange(event.api.getCellRanges())
-        }
+        setRange(event.api.getCellRanges())
+
 
     }
 
@@ -99,7 +129,7 @@ export default function Sheet({ data, exportClicked, setExportClicked, index, se
         var columns = new Set()
         if (range) {
             range.forEach(function (r) {
-                // get starting and ending row, remember rowEnd could be before rowStart
+                // get starting and ending row, remember end could be before start
                 var startRow = Math.min(r.startRow.rowIndex, r.endRow.rowIndex);
                 var endRow = Math.max(r.startRow.rowIndex, r.endRow.rowIndex);
                 r.columns.forEach(function (column) {
@@ -127,7 +157,11 @@ export default function Sheet({ data, exportClicked, setExportClicked, index, se
             res.push({
                 field: key,
                 dndSource: true,
-                dndSourceOnRowDrag: onRowDrag
+                dndSourceOnRowDrag: onRowDrag,
+                cellRenderer: Renderer,
+                cellRendererParams: {
+                    range: range
+                }
             })
         }
         return res
