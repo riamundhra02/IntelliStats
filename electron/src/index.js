@@ -13,7 +13,12 @@ function createWindow() {
             preload: __dirname + '/preload.js' // <--- (2) Preload script
         }
     });
-    win.loadURL('http://localhost:3000'); // <--- (3) Loading react
+    if (process.env.NODE_ENV === 'dev') {
+        win.loadURL('http://localhost:3000')
+        win.webContents.openDevTools()
+      } else {
+     win.loadURL(`file://${process.resourcesPath}/build/html/index.html`)
+      }
 
 
     ipcMain.on('saveTemplate', (event, m) => {
@@ -60,7 +65,6 @@ function createWindow() {
             console.log(err)
         })
     })
-    win.webContents.openDevTools()
     win.webContents.on('did-finish-load', () => { win.webContents.send('ping', 'ping') });
     win.on('closed', () => {
         ipcMain.removeAllListeners('saveTemplate')

@@ -308,7 +308,7 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
                                 m: 1,
                                 p: 0,
                                 borderWidth: 2,
-                                width: '70%',
+                                width: '50%',
                                 height: '59%',
                                 zIndex: 10,
                             }}
