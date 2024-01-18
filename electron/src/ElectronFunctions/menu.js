@@ -42,8 +42,31 @@ function exportDataFunctionCSV(win) {
 }
 
 let v = 0;
-function regression(win, dirname) {
+function regression(win) {
     win.webContents.send('Regression', v)
+    // let popupWindow = new BrowserWindow({
+    //     frame: true,
+    //     focusable: false,
+    //     alwaysOnTop: true,
+    //     skipTaskbar: true,
+    //     height: 300,
+    //     width: 400,
+    //     webPreferences: {
+    //         nodeIntegration: false,
+    //         contextIsolation: false,
+    //         preload: path.join(dirname, "/preload.js") // Do I need this? Yes
+    //     }
+    // });
+
+    // Menu.setApplicationMenu(null);
+    // popupWindow.webContents.openDevTools()
+    // popupWindow.loadURL(`http://localhost:3000/regression`);
+    v += 1
+
+}
+
+function networkGraph(win) {
+    win.webContents.send('Network Graph', v)
     // let popupWindow = new BrowserWindow({
     //     frame: true,
     //     focusable: false,
@@ -144,4 +167,4 @@ function openProject(win) {
     });
 }
 
-module.exports = { importFunction, exportDataFunctionXLSX, exportDataFunctionCSV, regression, saveAsTemplate, importTemplate, exportPDF, saveProject, openProject }
+module.exports = { importFunction, exportDataFunctionXLSX, exportDataFunctionCSV, regression, networkGraph, saveAsTemplate, importTemplate, exportPDF, saveProject, openProject }

@@ -138,9 +138,7 @@ export default function Sheet({ data, exportClicked, setExportClicked, index, se
                         var rowModel = api.getModel();
                         var rowNode = rowModel.getRow(rowIndex);
                         var value = api.getValue(column, rowNode);
-                        if (typeof value === 'number') {
-                            data.push(value)
-                        }
+                        data.push(value)
                     }
                 })
             });

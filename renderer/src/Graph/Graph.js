@@ -17,17 +17,21 @@ import Checkbox from '@mui/material/Checkbox';
 import TrapFocus from '@mui/material/Unstable_TrapFocus';
 import Paper from '@mui/material/Paper';
 import Fade from '@mui/material/Fade';
-import Draggable from 'react-draggable'
+import NetworkGraph from './NetworkGraph'
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import CustomTabPanel from './CustomTabPanel'
 
-export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexes, addToTemplate, projectSaveClicked }) {
+
+export default function Graph({ type, idx, removeIdxFromGraphs, states, selectedIndexes, addToTemplate, projectSaveClicked }) {
     const [model, setModel] = useState(states.model);
     const [method, setMethod] = useState(states.method);
     const [xdata, setXData] = useState(states.xdata)
     const [ydata, setYData] = useState(states.ydata)
-    const [data, setData] = useState([[]])
+    const [source, setSource] = useState(states.source)
+    const [target, setTarget] = useState(states.target)
+    const [label, setLabel] = useState(states.label)
+    const [data, setData] = useState(type == 'regression' ? [[]] : [])
     const [order, setOrder] = useState(states.order)
     const [numberVar, setNumberVar] = useState(states.numberVar)
     const [regressionExpr, setRegressionExpr] = useState(states.regressionExpr)
@@ -37,6 +41,9 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
     const [tabValue, setTabValue] = useState(states.tabValue)
     const [xAxis, setXAxis] = useState(states.xAxis)
     const [zAxis, setZAxis] = useState(states.zAxis)
+    const [directed, setDirected] = useState(true)
+
+
 
 
     const multipleReg = Array(Number(numberVar)).fill(0)
@@ -71,27 +78,41 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
     }, [model, numberVar])
 
     useEffect(() => {
-        let dataAux = xdata.map((xd, i) => {
-            let data_helper = []
-            if (xd.data.length == 0) {
-                data_helper = ydata.data.map((value, i) => [0, value])
-            } else if (xd.data.length <= ydata.data.length) {
-                for (let i = 0; i < xd.data.length; i++) {
-                    data_helper.push([xd.data[i], ydata.data[i]])
-                }
-                for (let i = xd.data.length; i < ydata.data.length; i++) {
-                    data_helper.push([0, ydata.data[i]])
-                }
-            } else if (ydata.data.length <= xd.data.length) {
-                for (let i = 0; i < ydata.data.length; i++) {
-                    data_helper.push([xd.data[i], ydata.data[i]])
-                }
-            }
-            return data_helper
+        let dataAux = []
 
-        })
+        if (type == 'regression') {
+            dataAux = xdata.map((xd, i) => {
+                let data_helper = []
+                if (xd.data.length == 0) {
+                    data_helper = ydata.data.map((value, i) => [0, value])
+                } else if (xd.data.length <= ydata.data.length) {
+                    for (let i = 0; i < xd.data.length; i++) {
+                        data_helper.push([xd.data[i], ydata.data[i]])
+                    }
+                    for (let i = xd.data.length; i < ydata.data.length; i++) {
+                        data_helper.push([0, ydata.data[i]])
+                    }
+                } else if (ydata.data.length <= xd.data.length) {
+                    for (let i = 0; i < ydata.data.length; i++) {
+                        data_helper.push([xd.data[i], ydata.data[i]])
+                    }
+                }
+                return data_helper
+
+            })
+        } else {
+            let i = Math.min(source.data.length, target.data.length, label.data.length)
+            let newSource = source.data.slice(0, i)
+            let newTarget = target.data.slice(0, i)
+            let newLabel = label.data.slice(0, i)
+            let nodes = new Set([...newSource, ...newTarget])
+            nodes = Array.from(nodes.values())
+            nodes = nodes.map((v, i) => { return { data: { id: v} } })
+            newLabel = newLabel.map((v, i) => { return { data: { source: newSource[i], target: newTarget[i], label: v } } })
+            dataAux = [...nodes, ...newLabel]
+        }
         setData(dataAux)
-    }, [xdata, ydata])
+    }, [xdata, ydata, type, source, target, label])
 
     const handleChangeModel = (event) => {
         setModel(event.target.value);
@@ -112,6 +133,7 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
     function dropX(ev, i) {
         ev.preventDefault();
         let data = JSON.parse(ev.dataTransfer.getData('application/json'))
+        data.data = data.data.filter((v, i) => typeof v == 'number')
         if (data.data.length == 0) {
             alert('Please select numerical data!')
             return
@@ -126,12 +148,48 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
     function dropY(ev) {
         ev.preventDefault();
         let data = JSON.parse(ev.dataTransfer.getData('application/json'))
+        data.data = data.data.filter((v, i) => typeof v == 'number')
         if (data.data.length == 0) {
             alert('Please select numerical data!')
             return
         }
 
         setYData(data)
+
+    }
+
+    function dropSource(ev) {
+        ev.preventDefault();
+        let data = JSON.parse(ev.dataTransfer.getData('application/json'))
+        if (data.data.length == 0) {
+            alert('Please select source data!')
+            return
+        }
+
+        setSource(data)
+
+    }
+
+    function dropTarget(ev) {
+        ev.preventDefault();
+        let data = JSON.parse(ev.dataTransfer.getData('application/json'))
+        if (data.data.length == 0) {
+            alert('Please select target data!')
+            return
+        }
+
+        setTarget(data)
+
+    }
+
+    function dropLabel(ev) {
+        ev.preventDefault();
+        let data = JSON.parse(ev.dataTransfer.getData('application/json'))
+        if (data.data.length == 0) {
+            alert('Please select edge labels!')
+            return
+        }
+        setLabel(data)
 
     }
 
@@ -193,7 +251,7 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
         }
     }, [model, numberVar, order, data, checked])
 
-    const component = <>
+    const component = type == 'regression' ? <>
         <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center' sx={{ width: '100%' }}>
             <Grid item xs={1}>
                 <Button onDrop={dropY} onDragOver={allowDrop}>Insert Y Data</Button>
@@ -225,9 +283,26 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
         </Grid>
 
     </>
+        :
+        <>
+            <NetworkGraph elements={data} directed={directed}/>
+            <Grid container alignItems="center" justifyContent="center" alignContent='center' direction='row' columns={4}>
+                <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropSource(ev) }} onDragOver={allowDrop}>Source Nodes</Button></Grid>
+                <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropTarget(ev) }} onDragOver={allowDrop}>Target Nodes</Button></Grid>
+                <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropLabel(ev) }} onDragOver={allowDrop}>Edge Labels</Button></Grid>
+                <Grid item xs={1} alignItems='center' alignContent='center'>
+                    <Typography variant='overline'>
+                        <Checkbox checked={directed} onChange={(ev) => setDirected(ev.target.checked)} /> Directed?
+                        </Typography>
+                </Grid>
+
+            </Grid>
+        </>
+
+
     return (
         <>
-            <div onDoubleClick={(ev) => setBannerOpen(true)} style={{ width: '100%' }} className='graph'>
+            <div onDoubleClick={(ev) => setBannerOpen(true)} style={{ width: '100%', position: 'relative' }} className='graph'>
                 <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
                     <Grid item xs={8} />
                     <Grid item xs={1}>
@@ -236,7 +311,7 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
                         </IconButton>
                     </Grid>
                 </Grid>
-                <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
+                {type == 'regression' ? <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
                     <Grid item xs={9}>
                         <Typography variant="h5">{regressionExpr.replaceAll("_", "").replaceAll('\\', '').replaceAll("{", "(").replaceAll("}", ")")} {model == 'linear' || model == 'multiple' ? <Typography variant='overline'><Checkbox checked={checked}
                             onChange={(ev) => setChecked(ev.target.checked)} /> Include intercept?</Typography> : <></>}</Typography>
@@ -250,84 +325,85 @@ export default function Graph({ idx, removeIdxFromGraphs, states, selectedIndexe
                                 <></>}
                     </Grid>
                 </Grid>
+                    : <></>}
                 {component}
                 <br />
                 <br />
-                <Grid container columns={8} columnSpacing={2} alignItems="center" alignContent='center'>
-                    <Grid item xs={2} />
-                    <Grid item xs={2}>
-                        <FormControl fullWidth>
-                            <InputLabel id="demo-simple-select-label">Regression Model</InputLabel>
-                            <Select
-                                labelId="demo-simple-select-label"
-                                id="demo-simple-select"
-                                value={model}
-                                label="Regression Model"
-                                onChange={handleChangeModel}
-                            >
-                                <MenuItem value={'linear'}>Single Linear</MenuItem>
-                                <MenuItem value={'multiple'}>Multiple Linear</MenuItem>
-                                <MenuItem value={'polynomial'}>Single Polynomial</MenuItem>
-                                <MenuItem value={'logarithmic'}>Single Logarithmic</MenuItem>
-                            </Select>
-                        </FormControl>
-                    </Grid>
-                    <Grid item xs={2}>
-                        <FormControl fullWidth>
-                            <InputLabel id="demo-simple-select-label">Estimation Method</InputLabel>
-                            <Select
-                                labelId="demo-simple-select-label"
-                                id="demo-simple-select"
-                                value={method}
-                                label="Estimation Method"
-                                onChange={handleChangeMethod}
-                            >
-                                <MenuItem value={'ols'}>Ordinary Least Squares (Maximum Likelihood)</MenuItem>
-                            </Select>
-                        </FormControl>
-                    </Grid>
-                </Grid>
+                {type == 'regression' ?
+                    <>
+                        <Grid container columns={8} columnSpacing={2} alignItems="center" alignContent='center'>
+                            <Grid item xs={2} />
+                            <Grid item xs={2}>
+                                <FormControl fullWidth>
+                                    <InputLabel id="demo-simple-select-label">Regression Model</InputLabel>
+                                    <Select
+                                        labelId="demo-simple-select-label"
+                                        id="demo-simple-select"
+                                        value={model}
+                                        label="Regression Model"
+                                        onChange={handleChangeModel}
+                                    >
+                                        <MenuItem value={'linear'}>Single Linear</MenuItem>
+                                        <MenuItem value={'multiple'}>Multiple Linear</MenuItem>
+                                        <MenuItem value={'polynomial'}>Single Polynomial</MenuItem>
+                                        <MenuItem value={'logarithmic'}>Single Logarithmic</MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                            <Grid item xs={2}>
+                                <FormControl fullWidth>
+                                    <InputLabel id="demo-simple-select-label">Estimation Method</InputLabel>
+                                    <Select
+                                        labelId="demo-simple-select-label"
+                                        id="demo-simple-select"
+                                        value={method}
+                                        label="Estimation Method"
+                                        onChange={handleChangeMethod}
+                                    >
+                                        <MenuItem value={'ols'}>Ordinary Least Squares (Maximum Likelihood)</MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                        </Grid>
+                    </> : <></>}
             </div>
 
 
-
-            <Draggable>
-                <TrapFocus open disableAutoFocus disableEnforceFocus>
-                    <Fade appear={false} in={bannerOpen}>
-                        <Paper
-                            role="dialog"
-                            aria-modal="false"
-                            aria-label="Cookie banner"
-                            square
-                            variant="outlined"
-                            tabIndex={-1}
-                            sx={{
-                                position: 'fixed',
-                                bottom: 0,
-                                right: 0,
-                                m: 1,
-                                p: 0,
-                                borderWidth: 2,
-                                width: '50%',
-                                height: '59%',
-                                zIndex: 10,
-                            }}
-                        >
-                            <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center' sx={{ height: '12%', p:1}}>
-                                <Grid item xs={8} />
-                                <Grid item xs={1}>
-                                    <IconButton aria-label="delete" onClick={(ev) => { setBannerOpen(false) }}>
-                                        <CloseIcon />
-                                    </IconButton>
-                                </Grid>
+            <TrapFocus open disableAutoFocus disableEnforceFocus>
+                <Fade appear={false} in={bannerOpen}>
+                    <Paper
+                        role="dialog"
+                        aria-modal="false"
+                        aria-label="Cookie banner"
+                        square
+                        variant="outlined"
+                        tabIndex={-1}
+                        sx={{
+                            position: 'fixed',
+                            bottom: 0,
+                            right: 0,
+                            m: 1,
+                            p: 0,
+                            borderWidth: 2,
+                            width: '50%',
+                            height: '59%',
+                            zIndex: 10,
+                        }}
+                    >
+                        <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center' sx={{ height: '12%', p: 1 }}>
+                            <Grid item xs={8} />
+                            <Grid item xs={1}>
+                                <IconButton aria-label="delete" onClick={(ev) => { setBannerOpen(false) }}>
+                                    <CloseIcon />
+                                </IconButton>
                             </Grid>
-                            <Paper sx={{ height: '88%', overflow: 'scroll', borderWidth: 0}}>
-                                {component}
-                            </Paper>
+                        </Grid>
+                        <Paper sx={{ height: '88%', overflow: 'scroll', borderWidth: 0 }}>
+                            {component}
                         </Paper>
-                    </Fade>
-                </TrapFocus>
-            </Draggable>
+                    </Paper>
+                </Fade>
+            </TrapFocus>
             <br />
             <br />
             <hr />

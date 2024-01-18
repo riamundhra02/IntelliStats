@@ -28,7 +28,6 @@ function inverse(matrix) {
             }
         }
         if (Math.abs(augmentedMatrix[maxElementIndex][i]) === 0) {
-            console.log(Math.abs(augmentedMatrix[maxElementIndex][i]))
             return;
         }
 

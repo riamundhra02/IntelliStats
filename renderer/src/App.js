@@ -80,6 +80,9 @@ function App() {
         method: 'ols',
         xdata: [{ data: [], dataset: -1 }],
         ydata: { data: [], dataset: -1 },
+        source: {data: [], dataset: -1},
+        target: {data: [], dataset: -1},
+        label: {data: [], dataset: -1},
         order: 1,
         numberVar: 1,
         regressionExpr: '',
@@ -102,9 +105,7 @@ function App() {
     }
 
     useEffect(() => {
-        console.log(selectedDataIndexes, selectedGraphIndexes)
         if (continueClicked || projectSaveClicked) {
-            console.log(selectedDataIndexes, selectedGraphIndexes)
             if (selectedGraphIndexes.length + selectedDataIndexes.length == 0 && !projectSaveClicked) {
                 alert('Nothing to save!')
             } else {
@@ -176,7 +177,6 @@ function App() {
     }
 
     function updateSelectedIndexes(i, type) {
-        console.log(i,type)
         if (saveClicked) {
             let index, copy, setter;
             if (type == 'graph') {
@@ -191,11 +191,9 @@ function App() {
             if (index > -1) {
                 copy.splice(index, 1)
                 setter(copy)
-                console.log(copy)
             } else {
                 copy.push(i)
                 setter(copy)
-                console.log(copy)
             }
         }
     }
@@ -273,6 +271,20 @@ function App() {
                     ...regression,
                     {
                         idx: m,
+                        type: 'regression',
+                        states: graphStates
+                    }
+                ]
+            })
+        })
+
+        window.ipcRenderer.on('Network Graph', (event, m) => {
+            setRegression((regression) => {
+                return [
+                    ...regression,
+                    {
+                        idx: m,
+                        type: 'network graph',
                         states: graphStates
                     }
                 ]
@@ -297,6 +309,7 @@ function App() {
             window.ipcRenderer.removeAllListeners('importTemplate')
             window.ipcRenderer.removeAllListeners('exportPDF')
             window.ipcRenderer.removeAllListeners('openProject')
+            window.ipcRenderer.removeAllListeners('Network Graph')
 
         }
     }, [dataSources, regression, selectedGraphIndexes, template]);
@@ -335,7 +348,7 @@ function App() {
         //     }
         // }}
         >
-            <Graph idx={i} projectSaveClicked={projectSaveClicked} removeIdxFromGraphs={removeIdxFromGraphs} states={v.states} selectedIndexes={selectedGraphIndexes} addToTemplate={addToTemplate} className="graph"/>
+           <Graph idx={i} projectSaveClicked={projectSaveClicked} removeIdxFromGraphs={removeIdxFromGraphs} states={v.states} selectedIndexes={selectedGraphIndexes} addToTemplate={addToTemplate} className="graph" type={v.type}/>
         </Button >
     })
 

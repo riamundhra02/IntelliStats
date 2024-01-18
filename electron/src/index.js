@@ -182,6 +182,11 @@ const template = [
                 id: "Regression Model",
                 click: () => { menuFuncs.regression(win, __dirname) }
             },
+            {
+                label: "Network Graph",
+                id: "Network Graph",
+                click: () => { menuFuncs.networkGraph(win, __dirname) }
+            },
         ]
     },
     {

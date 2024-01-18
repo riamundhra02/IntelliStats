@@ -40,7 +40,6 @@ export function ScatterPlotChart({ expr, points }) {
     // const pointsExpr = points[0].map((point, i) => `(${point.join(",")})`).join(',')
 
     useEffect(() => {
-        console.log(expr, points)
         if (calculator) {
             for (let i = 1; i < xdata.length; i++) {
                 if (!xdata[i].reduce((prev, current) => { return prev && current == 0 }, true)) {
