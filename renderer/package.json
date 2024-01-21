@@ -16,7 +16,7 @@
         "ag-grid-community": "^30.2.0",
         "ag-grid-enterprise": "^30.2.0",
         "ag-grid-react": "^30.2.0",
-        "cytoscape": "^3.2.19",
+        "cytoscape": "^3.28.1",
         "desmos": "^1.5.4",
         "desmos-react": "^1.2.0",
         "echarts": "^5.4.3",
