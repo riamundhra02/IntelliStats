@@ -108,7 +108,7 @@ export default function Graph({ type, idx, removeIdxFromGraphs, states, selected
             let nodes = new Set([...newSource, ...newTarget])
             nodes = Array.from(nodes.values())
             nodes = nodes.map((v, i) => { return { data: { id: v} } })
-            newLabel = newLabel.map((v, i) => { return { data: { source: newSource[i], target: newTarget[i], label: v } } })
+            newLabel = newLabel.map((v, i) => { return { data: { source: newSource[i], target: newTarget[i], label: `${v}` } } })
             dataAux = [...nodes, ...newLabel]
         }
         setData(dataAux)

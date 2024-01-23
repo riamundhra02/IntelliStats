@@ -1,4 +1,4 @@
-import { Button } from '@mui/material';
+import { Button, Switch } from '@mui/material';
 import { useState, useEffect } from 'react'
 import CytoscapeComponent from 'react-cytoscapejs';
 import HomeIcon from '@mui/icons-material/Home';
@@ -30,6 +30,49 @@ const DrawerHeader = styled('div')(({ theme }) => ({
     alignItems: 'center',
     ...theme.mixins.toolbar,
     justifyContent: 'flex-end',
+}));
+
+const MaterialUISwitch = styled(Switch)(({ theme }) => ({
+    width: 62,
+    height: 34,
+    padding: 7,
+    '& .MuiSwitch-switchBase': {
+        margin: 1,
+        padding: 0,
+        transform: 'translateX(6px)',
+        '&.Mui-checked': {
+            color: '#fff',
+            transform: 'translateX(22px)',
+            '& .MuiSwitch-thumb:before': {
+                backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>circle-multiple-outline</title><path d="M15,4A8,8 0 0,1 23,12A8,8 0 0,1 15,20A8,8 0 0,1 7,12A8,8 0 0,1 15,4M15,18A6,6 0 0,0 21,12A6,6 0 0,0 15,6A6,6 0 0,0 9,12A6,6 0 0,0 15,18M3,12C3,14.61 4.67,16.83 7,17.65V19.74C3.55,18.85 1,15.73 1,12C1,8.27 3.55,5.15 7,4.26V6.35C4.67,7.17 3,9.39 3,12Z" /></svg>')`,
+            },
+            '& + .MuiSwitch-track': {
+                opacity: 1,
+                backgroundColor: theme.palette.mode === 'dark' ? '#8796A5' : '#aab4be',
+            },
+        },
+    },
+    '& .MuiSwitch-thumb': {
+        backgroundColor: '#cfd8dc',
+        width: 32,
+        height: 32,
+        '&::before': {
+            content: "''",
+            position: 'absolute',
+            width: '100%',
+            height: '100%',
+            left: 0,
+            top: 0,
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>chart-line-variant</title><path d="M3.5,18.5L9.5,12.5L13.5,16.5L22,6.92L20.59,5.5L13.5,13.5L9.5,9.5L2,17L3.5,18.5Z" /></svg>')`,
+        },
+    },
+    '& .MuiSwitch-track': {
+        opacity: 1,
+        backgroundColor: theme.palette.mode === 'dark' ? '#8796A5' : '#aab4be',
+        borderRadius: 20 / 2,
+    },
 }));
 
 const MarkovModal = ({ expand, setExpand, inflate, setInflate, markovOpen, setMarkovOpen }) => {
@@ -64,10 +107,11 @@ const MarkovModal = ({ expand, setExpand, inflate, setInflate, markovOpen, setMa
 }
 
 
-const ColourSelector = ({ c, label, attribute, setStylesheet }) => {
+const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
     const [colour, setColour] = useState(c)
 
     useEffect(() => {
+        // console.log(attribute)
         if (colour !== c) {
             setColour(c)
             c.forEach((newColour, i) => {
@@ -75,12 +119,15 @@ const ColourSelector = ({ c, label, attribute, setStylesheet }) => {
                 if (attribute == "Constant") {
                     setStylesheet(pstylesheet => {
                         let copy = [...pstylesheet]
-                        let indexes = copy.map((obj, index) => { if (obj.selector.includes('node')) return index }).filter(item => item !== undefined);
+                        let indexes = copy.map((obj, index) => { if (obj.selector.includes(type)) return index }).filter(item => item !== undefined);
                         if (indexes.length >= 0) {
                             indexes.forEach((index) => {
                                 let style = { ...copy[index]["style"] }
                                 let selector = copy[index]["selector"]
-                                style["background-color"] = newColour
+                                style[`${type == "node" ? "background" : "line"}-color`] = newColour
+                                if (type == "edge") {
+                                    style["target-arrow-color"] = newColour
+                                }
                                 copy[index] = {
                                     selector: selector,
                                     style: style
@@ -88,10 +135,13 @@ const ColourSelector = ({ c, label, attribute, setStylesheet }) => {
                             })
                         } else {
                             copy.push({
-                                selector: 'node',
-                                style: {
+                                selector: type,
+                                style: type == "node" ? {
                                     'background-color': newColour
-                                }
+                                } : {
+                                        'line-color': newColour,
+                                        'target-arrow-color': newColour
+                                    }
                             })
                         }
                         console.log(copy)
@@ -100,20 +150,27 @@ const ColourSelector = ({ c, label, attribute, setStylesheet }) => {
                 } else {
                     setStylesheet(pstylesheet => {
                         let copy = [...pstylesheet]
-                        let index = copy.findIndex((obj) => obj.selector == `node[${attribute} = "${l}"]`)
+                        let index = copy.findIndex((obj) => obj.selector == `${type}[${type == "node" ? attribute : "label"} = "${l}"]`)
                         if (index >= 0) {
                             let style = { ...copy[index]["style"] }
-                            style["background-color"] = newColour
+                            let selector = copy[index]["selector"]
+                            style[`${type == "node" ? "background" : "line"}-color`] = newColour
+                            if (type == "edge") {
+                                style["target-arrow-color"] = newColour
+                            }
                             copy[index] = {
-                                selector: `node[${attribute} = "${l}"]`,
+                                selector: selector,
                                 style: style
                             }
                         } else {
                             copy.push({
-                                selector: `node[${attribute} = "${l}"]`,
-                                style: {
+                                selector: `${type}[${type == "node" ? attribute : "label"} = "${l}"]`,
+                                style: type == "node" ? {
                                     'background-color': newColour
-                                }
+                                } : {
+                                        'line-color': newColour,
+                                        'target-arrow-color': newColour
+                                    }
                             })
                         }
                         console.log(copy)
@@ -133,12 +190,15 @@ const ColourSelector = ({ c, label, attribute, setStylesheet }) => {
         if (attribute == "Constant") {
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
-                let indexes = copy.map((obj, index) => { if (obj.selector.includes('node')) return index }).filter(item => item !== undefined);
+                let indexes = copy.map((obj, index) => { if (obj.selector.includes(type)) return index }).filter(item => item !== undefined);
                 if (indexes.length >= 0) {
                     indexes.forEach((index) => {
                         let style = { ...copy[index]["style"] }
                         let selector = copy[index]["selector"]
-                        style["background-color"] = newColour.css.backgroundColor
+                        style[`${type == "node" ? "background" : "line"}-color`] = newColour.css.backgroundColor
+                        if (type == "edge") {
+                            style["target-arrow-color"] = newColour.css.backgroundColor
+                        }
                         copy[index] = {
                             selector: selector,
                             style: style
@@ -146,10 +206,13 @@ const ColourSelector = ({ c, label, attribute, setStylesheet }) => {
                     })
                 } else {
                     copy.push({
-                        selector: 'node',
-                        style: {
+                        selector: type,
+                        style: type == "node" ? {
                             'background-color': newColour.css.backgroundColor
-                        }
+                        } : {
+                                'line-color': newColour.css.backgroundColor,
+                                'target-arrow-color': newColour.css.backgroundColor
+                            }
                     })
                 }
                 console.log(copy)
@@ -158,20 +221,27 @@ const ColourSelector = ({ c, label, attribute, setStylesheet }) => {
         } else {
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
-                let index = copy.findIndex((obj) => obj.selector == `node[${attribute} = "${l}"]`)
+                let index = copy.findIndex((obj) => obj.selector == `${type}[${type == "node" ? attribute : "label"} = "${l}"]`)
                 if (index >= 0) {
                     let style = { ...copy[index]["style"] }
-                    style["background-color"] = newColour.css.backgroundColor
+                    let selector = copy[index]["selector"]
+                    style[`${type == "node" ? "background" : "line"}-color`] = newColour.css.backgroundColor
+                    if (type == "edge") {
+                        style["target-arrow-color"] = newColour.css.backgroundColor
+                    }
                     copy[index] = {
-                        selector: `node[${attribute} = "${l}"]`,
+                        selector: selector,
                         style: style
                     }
                 } else {
                     copy.push({
-                        selector: `node[${attribute} = "${l}"]`,
-                        style: {
+                        selector: `${type}[${type == "node" ? attribute : "label"} = "${l}"]`,
+                        style: type == "node" ? {
                             'background-color': newColour.css.backgroundColor
-                        }
+                        } : {
+                                'line-color': newColour.css.backgroundColor,
+                                'target-arrow-color': newColour.css.backgroundColor
+                            }
                     })
                 }
                 console.log(copy)
@@ -203,17 +273,24 @@ const ColourSelector = ({ c, label, attribute, setStylesheet }) => {
 
 }
 
-const SizeSelector = ({ setStylesheet, attribute, label }) => {
-    console.log(label)
+const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
     const [min, setMin] = useState(10)
     const [max, setMax] = useState(50)
-    const [constant, setConstant] = useState(20)
+    const [constant, setConstant] = useState()
+
+    useEffect(() => {
+        if(type=="node"){
+            setConstant(30)
+        }else {
+            setConstant(5)
+        }
+    }, [])
 
     const getSize = (l, min, max) => {
         let minimumLabel = Math.min(...label)
         let maximumLabel = Math.max(...label)
         if (minimumLabel == maximumLabel) {
-            return (max-min)/2
+            return (max - min) / 2
         } else {
             let step = (max - min) / (maximumLabel - minimumLabel)
             return (l - minimumLabel) * step + min
@@ -222,16 +299,19 @@ const SizeSelector = ({ setStylesheet, attribute, label }) => {
     }
 
     useEffect(() => {
+        console.log(label, attribute)
         if (attribute == "Constant") {
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
-                let indexes = copy.map((obj, index) => { if (obj.selector.includes('node')) return index }).filter(item => item !== undefined);
+                let indexes = copy.map((obj, index) => { if (obj.selector.includes(type)) return index }).filter(item => item !== undefined);
                 if (indexes.length >= 0) {
                     indexes.forEach((index) => {
                         let style = { ...copy[index]["style"] }
                         let selector = copy[index]["selector"]
-                        style["height"] = `${constant}px`
-                        style["width"] = `${constant}px`
+                        if (type == "node") {
+                            style["height"] = constant
+                        }
+                        style["width"] = constant
                         copy[index] = {
                             selector: selector,
                             style: style
@@ -239,11 +319,13 @@ const SizeSelector = ({ setStylesheet, attribute, label }) => {
                     })
                 } else {
                     copy.push({
-                        selector: 'node',
-                        style: {
-                            'height': `${constant}px`,
-                            'width': `${constant}px`
-                        }
+                        selector: type,
+                        style: type == "node" ? {
+                            'height': constant,
+                            'width': constant
+                        } : {
+                                'width': constant
+                            }
                     })
                 }
                 return copy
@@ -257,8 +339,8 @@ const SizeSelector = ({ setStylesheet, attribute, label }) => {
                     console.log(index, size)
                     if (index >= 0) {
                         let style = { ...copy[index]["style"] }
-                        style["height"] = `${size}px`
-                        style["width"] = `${size}px`
+                        style["height"] = size
+                        style["width"] = size
                         copy[index] = {
                             selector: `node[${attribute} = "${l}"]`,
                             style: style
@@ -267,8 +349,8 @@ const SizeSelector = ({ setStylesheet, attribute, label }) => {
                         copy.push({
                             selector: `node[${attribute} = "${l}"]`,
                             style: {
-                                'height': `${size}px`,
-                                'width': `${size}px`
+                                'height': size,
+                                'width': size
                             }
                         })
                     }
@@ -277,20 +359,23 @@ const SizeSelector = ({ setStylesheet, attribute, label }) => {
                 return copy
             })
         }
-    }, [label, attribute])
+    }, [label, attribute, type])
 
-    const handleSizeChange = (ev, type) => {
-        if (type == "constant") {
+    const handleSizeChange = (ev, eventType) => {
+        if (eventType == "constant") {
             setConstant(ev.target.value)
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
-                let indexes = copy.map((obj, index) => { if (obj.selector.includes('node')) return index }).filter(item => item !== undefined);
+                let indexes = copy.map((obj, index) => { if (obj.selector.includes(type)) return index }).filter(item => item !== undefined);
+                console.log(indexes)
                 if (indexes.length >= 0) {
                     indexes.forEach((index) => {
                         let style = { ...copy[index]["style"] }
                         let selector = copy[index]["selector"]
-                        style["height"] = `${ev.target.value}px`
-                        style["width"] = `${ev.target.value}px`
+                        if (type == "node") {
+                            style["height"] = ev.target.value
+                        }
+                        style["width"] = ev.target.value
                         copy[index] = {
                             selector: selector,
                             style: style
@@ -298,16 +383,19 @@ const SizeSelector = ({ setStylesheet, attribute, label }) => {
                     })
                 } else {
                     copy.push({
-                        selector: 'node',
-                        style: {
-                            'height': `${ev.target.value}px`,
-                            'width': `${ev.target.value}px`
-                        }
+                        selector: type,
+                        style: type == "node" ? {
+                            'height': ev.target.value,
+                            'width': ev.target.value
+                        } : {
+                                'width': ev.target.value
+                            }
                     })
                 }
+                console.log(copy)
                 return copy
             })
-        } else if (type == "min") {
+        } else if (eventType == "min") {
             setMin(ev.target.value)
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
@@ -317,8 +405,8 @@ const SizeSelector = ({ setStylesheet, attribute, label }) => {
                     console.log(index, size)
                     if (index >= 0) {
                         let style = { ...copy[index]["style"] }
-                        style["height"] = `${size}px`
-                        style["width"] = `${size}px`
+                        style["height"] = size
+                        style["width"] = size
                         copy[index] = {
                             selector: `node[${attribute} = "${l}"]`,
                             style: style
@@ -327,8 +415,8 @@ const SizeSelector = ({ setStylesheet, attribute, label }) => {
                         copy.push({
                             selector: `node[${attribute} = "${l}"]`,
                             style: {
-                                'height': `${size}px`,
-                                'width': `${size}px`
+                                'height': size,
+                                'width': size
                             }
                         })
                     }
@@ -336,7 +424,7 @@ const SizeSelector = ({ setStylesheet, attribute, label }) => {
 
                 return copy
             })
-        } else if (type == "max") {
+        } else if (eventType == "max") {
             setMax(ev.target.value)
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
@@ -346,8 +434,8 @@ const SizeSelector = ({ setStylesheet, attribute, label }) => {
                     console.log(index, size)
                     if (index >= 0) {
                         let style = { ...copy[index]["style"] }
-                        style["height"] = `${size}px`
-                        style["width"] = `${size}px`
+                        style["height"] = size
+                        style["width"] = size
                         copy[index] = {
                             selector: `node[${attribute} = "${l}"]`,
                             style: style
@@ -356,8 +444,8 @@ const SizeSelector = ({ setStylesheet, attribute, label }) => {
                         copy.push({
                             selector: `node[${attribute} = "${l}"]`,
                             style: {
-                                'height': `${size}px`,
-                                'width': `${size}px`
+                                'height': size,
+                                'width': size
                             }
                         })
                     }
@@ -371,7 +459,7 @@ const SizeSelector = ({ setStylesheet, attribute, label }) => {
     return (
         <FormControl sx={{ p: 1 }}>
             {attribute == "Constant" ?
-                <TextField label="Size for all nodes" type="number" value={constant} onChange={(ev) => handleSizeChange(ev, "constant")} /> :
+                <TextField label={label} type="number" value={constant} onChange={(ev) => handleSizeChange(ev, "constant")} /> :
                 <>
                     <TextField label="Min" type="number" value={min} onChange={(ev) => handleSizeChange(ev, "min")} />
                     <br />
@@ -391,8 +479,8 @@ export default function NetworkGraph({ elements, directed }) {
                 "label": "data(id)",
                 "text-valign": "center",
                 "text-halign": "center",
-                "height": "60px",
-                "width": "60px",
+                "height": 60,
+                "width": 60,
                 'background-color': "gray"
             }
         },
@@ -400,9 +488,11 @@ export default function NetworkGraph({ elements, directed }) {
             selector: "edge",
             style: {
                 "target-arrow-shape": directed ? "triangle" : "none",
+                "target-arrow-width": "match-line",
                 "curve-style": "bezier",
                 "arrow-scale": 1.5,
-                'background-color': "gray"
+                'background-color': "gray",
+                'width': 10
             }
         },
         {
@@ -437,13 +527,26 @@ export default function NetworkGraph({ elements, directed }) {
     }, [directed])
     const [cy, setCy] = useState(undefined)
     const [open, setOpen] = useState(false);
-    const [colourAttribute, setColourAttribute] = useState("")
-    const [sizeAttribute, setSizeAttribute] = useState("")
-    const [colourLabels, setColourLabels] = useState([])
-    const [sizeLabels, setSizeLabels] = useState([])
+    const [nodeColourAttribute, setNodeColourAttribute] = useState("")
+    const [nodeSizeAttribute, setNodeSizeAttribute] = useState("")
+    const [nodeLabelAttribute, setNodeLabelAttribute] = useState("")
+    const [nodeLabelSizeAttribute, setNodeLabelSizeAttribute] = useState("")
+    const [edgeColourAttribute, setEdgeColourAttribute] = useState("")
+    const [edgeSizeAttribute, setEdgeSizeAttribute] = useState("")
+    const [edgeLabelAttribute, setEdgeLabelAttribute] = useState("")
+    const [edgeLabelSizeAttribute, setEdgeLabelSizeAttribute] = useState("")
+    const [nodeColourLabels, setNodeColourLabels] = useState([])
+    const [edgeColourLabels, setEdgeColourLabels] = useState([])
+    const [nodeSizeLabels, setNodeSizeLabels] = useState([])
+    const [edgeSizeLabels, setEdgeSizeLabels] = useState([])
+    const [labelValue, setLabelValue] = useState("")
+    const [edgeLabelValue, setEdgeLabelValue] = useState("")
+    const [nodeLabelSize, setNodeLabelSize] = useState()
+    const [edgeLabelSize, setEdgeLabelSize] = useState()
     const [inflate, setInflate] = useState(2)
     const [expand, setExpand] = useState(2)
     const [markovOpen, setMarkovOpen] = useState(false)
+    const [switchChecked, setSwitchChecked] = useState(true)
 
     function generateColours(quantity) {
         let colours = [];
@@ -454,28 +557,42 @@ export default function NetworkGraph({ elements, directed }) {
         return colours;
     }
 
-    const [c, setC] = useState()
+    const [nodeC, setNodeC] = useState()
+    const [edgeC, setEdgeC] = useState()
 
     useEffect(() => {
         cy?.resize()
     }, [])
 
     useEffect(() => {
-        setColourLabels(colourAttribute == "Constant" ? ["Colour for all nodes"] : Array.from(new Set(cy?.nodes().map((ele, i) => {
-            return (ele.json().data[colourAttribute])
+        setNodeColourLabels(nodeColourAttribute == "Constant" ? ["Colour for all nodes"] : Array.from(new Set(cy?.nodes().map((ele, i) => {
+            return (ele.json().data[nodeColourAttribute])
         }))))
-    }, [colourAttribute, cy])
+    }, [nodeColourAttribute, cy])
 
     useEffect(() => {
-        setSizeLabels(sizeAttribute == "Constant" ? ["Size for all nodes"] : Array.from(new Set(cy?.nodes().map((ele, i) => {
-            console.log(ele.json().data[sizeAttribute])
-            return (ele.json().data[sizeAttribute])
-        }))))
-    }, [sizeAttribute, cy])
+        setEdgeColourLabels(edgeColourAttribute == "Constant" ? ["Colour for all edges"] : edgeColourAttribute == "id" ? Array.from(new Set(cy?.$("edge").map((ele, i) => {
+            return (ele.json().data["label"])
+        }))) : [])
+    }, [edgeColourAttribute, cy])
 
     useEffect(() => {
-        setC(generateColours(colourLabels.length))
-    }, [colourLabels])
+        setNodeSizeLabels(nodeSizeAttribute == "Constant" ? ["Size for all nodes"] : Array.from(new Set(cy?.nodes().map((ele, i) => {
+            return (ele.json().data[nodeSizeAttribute])
+        }))))
+    }, [nodeSizeAttribute, cy])
+
+    useEffect(() => {
+        setEdgeSizeLabels(edgeSizeAttribute == "Constant" ? ["Size for all edges"] : [])
+    }, [edgeSizeAttribute, cy])
+
+    useEffect(() => {
+        setNodeC(generateColours(nodeColourLabels.length))
+    }, [nodeColourLabels])
+
+    useEffect(() => {
+        setEdgeC(generateColours(edgeColourLabels.length))
+    }, [edgeColourLabels])
 
     const handleDrawerOpen = () => {
         setOpen(true);
@@ -485,13 +602,231 @@ export default function NetworkGraph({ elements, directed }) {
         setOpen(false);
     };
 
-    const handleAttributeChange = (text, ev) => {
-        if (text == "Set Colour From") {
-            setColourAttribute(ev.target.value)
+    const handleAttributeChange = (text, ev, label, isNode) => {
+        if (isNode) {
+            if (text == "Set Colour From") {
+                setNodeColourAttribute(ev.target.value)
+            } else if (text == "Set Size From") {
+                setNodeSizeAttribute(ev.target.value)
+            } else if (text == "Set Label From") {
+                setNodeLabelAttribute(ev.target.value)
+                setStylesheet(pstylesheet => {
+                    let copy = [...pstylesheet]
+                    let indexes = copy.map((obj, index) => { if (obj.selector.includes('node')) return index }).filter(item => item !== undefined);
+                    if (indexes.length >= 0) {
+                        indexes.forEach((index) => {
+                            let style = { ...copy[index]["style"] }
+                            let selector = copy[index]["selector"]
+                            style["label"] = `${ev.target.value == "Constant" ? label : ev.target.value == "none" ? "" : `data(${ev.target.value})`}`
+                            copy[index] = {
+                                selector: selector,
+                                style: style
+                            }
+                        })
+                    } else {
+                        copy.push({
+                            selector: 'node',
+                            style: {
+                                'label': `${ev.target.value == "Constant" ? label : ev.target.value == "none" ? "" : `data(${ev.target.value})`}`
+                            }
+                        })
+                    }
+                    console.log(copy)
+                    return copy
+                })
+
+            } else {
+                setNodeLabelSizeAttribute(ev.target.value)
+                setStylesheet(pstylesheet => {
+                    let copy = [...pstylesheet]
+                    let indexes = copy.map((obj, index) => { if (obj.selector.includes('node')) return index }).filter(item => item !== undefined);
+                    if (indexes.length >= 0) {
+                        indexes.forEach((index) => {
+                            let style = { ...copy[index]["style"] }
+                            let selector = copy[index]["selector"]
+                            style["font-size"] = ev.target.value == "Constant" ? label : function (ele) { return (ele.numericStyle('height') * 0.4) }
+                            copy[index] = {
+                                selector: selector,
+                                style: style
+                            }
+                        })
+                    } else {
+                        copy.push({
+                            selector: 'node',
+                            style: {
+                                'font-size': ev.target.value == "Constant" ? label : function (ele) { return (ele.numericStyle('height') * 0.4) }
+                            }
+                        })
+                    }
+                    return copy
+                })
+
+
+            }
         } else {
-            setSizeAttribute(ev.target.value)
+            if (text == "Set Colour From") {
+                setEdgeColourAttribute(ev.target.value)
+                if (ev.target.value == "source") {
+                    setStylesheet(pstylesheet => {
+                        let copy = [...pstylesheet]
+                        let indexes = copy.map((obj, index) => { if (obj.selector.includes("edge")) return index }).filter(item => item !== undefined);
+                        if (indexes.length >= 0) {
+                            indexes.forEach((index) => {
+                                let style = { ...copy[index]["style"] }
+                                let selector = copy[index]["selector"]
+                                style["line-color"] = function (ele) { return (ele.source()[0].style("background-color")) }
+                                style["target-arrow-color"] = function (ele) { return (ele.source()[0].style("background-color")) }
+                                copy[index] = {
+                                    selector: selector,
+                                    style: style
+                                }
+                            })
+                        } else {
+                            copy.push({
+                                selector: 'edge',
+                                style: {
+                                    'line-color': function (ele) { return (ele.source()[0].style("background-color")) },
+                                    'target-arrow-color': function (ele) { return (ele.source()[0].style("background-color")) }
+                                }
+                            })
+                        }
+                        return copy
+                    })
+                } else if (ev.target.value == "target") {
+                    setStylesheet(pstylesheet => {
+                        let copy = [...pstylesheet]
+                        let indexes = copy.map((obj, index) => { if (obj.selector.includes("edge")) return index }).filter(item => item !== undefined);
+                        if (indexes.length >= 0) {
+                            indexes.forEach((index) => {
+                                let style = { ...copy[index]["style"] }
+                                let selector = copy[index]["selector"]
+                                style["line-color"] = function (ele) { return (ele.target()[0].style("background-color")) }
+                                style["target-arrow-color"] = function (ele) { return (ele.target()[0].style("background-color")) }
+                                copy[index] = {
+                                    selector: selector,
+                                    style: style
+                                }
+                            })
+                        } else {
+                            copy.push({
+                                selector: 'edge',
+                                style: {
+                                    'line-color': function (ele) { return (ele.target()[0].style("background-color")) },
+                                    'target-arrow-color': function (ele) { return (ele.target()[0].style("background-color")) }
+                                }
+                            })
+                        }
+                        return copy
+                    })
+                }
+            } else if (text == "Set Size From") {
+                setEdgeSizeAttribute(ev.target.value)
+                if (ev.target.value == "source") {
+                    setStylesheet(pstylesheet => {
+                        let copy = [...pstylesheet]
+                        let indexes = copy.map((obj, index) => { if (obj.selector.includes("edge")) return index }).filter(item => item !== undefined);
+                        if (indexes.length >= 0) {
+                            indexes.forEach((index) => {
+                                let style = { ...copy[index]["style"] }
+                                let selector = copy[index]["selector"]
+                                style["width"] = function (ele) { return (ele.source()[0].numericStyle("width")* 0.1) }
+                                copy[index] = {
+                                    selector: selector,
+                                    style: style
+                                }
+                            })
+                        } else {
+                            copy.push({
+                                selector: 'edge',
+                                style: {
+                                    'width': function (ele) { return (ele.source()[0].numericStyle("width")* 0.1) },
+                                }
+                            })
+                        }
+                        return copy
+                    })
+                } else if (ev.target.value == "target") {
+                    setStylesheet(pstylesheet => {
+                        let copy = [...pstylesheet]
+                        let indexes = copy.map((obj, index) => { if (obj.selector.includes("edge")) return index }).filter(item => item !== undefined);
+                        if (indexes.length >= 0) {
+                            indexes.forEach((index) => {
+                                let style = { ...copy[index]["style"] }
+                                let selector = copy[index]["selector"]
+                                style["width"] = function (ele) { return (ele.target()[0].numericStyle("width") * 0.1) }
+                                copy[index] = {
+                                    selector: selector,
+                                    style: style
+                                }
+                            })
+                        } else {
+                            copy.push({
+                                selector: 'edge',
+                                style: {
+                                    'width': function (ele) { return (ele.target()[0].numericStyle("width")* 0.1) },
+                                }
+                            })
+                        }
+                        return copy
+                    })
+                }
+            } else if (text == "Set Label From") {
+                setEdgeLabelAttribute(ev.target.value)
+                setStylesheet(pstylesheet => {
+                    let copy = [...pstylesheet]
+                    let indexes = copy.map((obj, index) => { if (obj.selector.includes('edge')) return index }).filter(item => item !== undefined);
+                    if (indexes.length >= 0) {
+                        indexes.forEach((index) => {
+                            let style = { ...copy[index]["style"] }
+                            let selector = copy[index]["selector"]
+                            style["label"] = `${ev.target.value == "Constant" ? label : ev.target.value == "none" ? "" : `data(label)`}`
+                            copy[index] = {
+                                selector: selector,
+                                style: style
+                            }
+                        })
+                    } else {
+                        copy.push({
+                            selector: 'edge',
+                            style: {
+                                'label': `${ev.target.value == "Constant" ? label : ev.target.value == "none" ? "" : `data(label)`}`
+                            }
+                        })
+                    }
+                    return copy
+                })
+
+            } else {
+                setEdgeLabelSizeAttribute(ev.target.value)
+                setStylesheet(pstylesheet => {
+                    let copy = [...pstylesheet]
+                    let indexes = copy.map((obj, index) => { if (obj.selector.includes('edge')) return index }).filter(item => item !== undefined);
+                    if (indexes.length >= 0) {
+                        indexes.forEach((index) => {
+                            let style = { ...copy[index]["style"] }
+                            let selector = copy[index]["selector"]
+                            style["font-size"] = ev.target.value == "Constant" ? label : function (ele) { return (ele.numericStyle('width') * 3) }
+                            copy[index] = {
+                                selector: selector,
+                                style: style
+                            }
+                        })
+                    } else {
+                        copy.push({
+                            selector: 'edge',
+                            style: {
+                                'font-size': ev.target.value == "Constant" ? label : function (ele) { return (ele.numericStyle('width') * 3) }
+                            }
+                        })
+                    }
+                    return copy
+                })
+
+
+            }
         }
     }
+
 
 
     const getInDegrees = (ev) => {
@@ -589,8 +924,8 @@ export default function NetworkGraph({ elements, directed }) {
     }, [cy, elements])
 
     useEffect(() => {
-        setColourAttribute("")
-        setSizeAttribute("")
+        setNodeColourAttribute("")
+        setNodeSizeAttribute("")
         cy?.nodes().removeData()
     }, [elements])
 
@@ -668,48 +1003,122 @@ export default function NetworkGraph({ elements, directed }) {
             </List>
             <MarkovModal inflate={inflate} setInflate={setInflate} expand={expand} setExpand={setExpand} markovOpen={markovOpen} setMarkovOpen={setMarkovOpen} />
             <Divider />
-            <Typography variant='h6' align='center'>Filter</Typography>
-            <Divider />
             <Typography variant='h6' align='center'>Style</Typography>
-            <List>
-                {["Set Colour From", "Set Size From"].map((text, index) => (
-                    <>
-                        <ListItem key={text} disablePadding sx={{ display: 'flex', flexDirection: 'column' }}>
-                            <Typography variant='overline' sx={{ width: '100%' }}>{text}</Typography>
-                            <FormControl fullWidth>
-                                <InputLabel id="demo-simple-select-label">Attribute</InputLabel>
-                                <Select
-                                    labelId="demo-simple-select-label"
-                                    id="demo-simple-select"
-                                    value={text == "Set Colour From" ? colourAttribute : sizeAttribute}
-                                    label={text + " Attribute"}
-                                    onChange={(ev) => { handleAttributeChange(text, ev) }}
-                                >
-                                    <MenuItem value="Constant">{text == "Set Colour From" ? "Constant Colour" : "Constant Size"}</MenuItem>
-                                    {Object.keys(cy?.nodes()[0]?.json().data ? cy?.nodes()[0]?.json().data : {}).map((key, i) => {
-                                        if (cy?.nodes()[0]?.json().data[key] != null) {
-                                            if (text == "Set Colour From") {
-                                                return <MenuItem value={key}>{key == 'id' ? "Input Label" : key.split("_").join(" ")}</MenuItem>
-                                            } else {
-                                                if (isNumerical[key]) {
+            <FormControl sx={{ display: "flex", flexDirection: "row", alignItems: 'center', justifyContent: 'center' }}>
+                <Typography variant="body1">Edges</Typography>
+                <MaterialUISwitch checked={switchChecked} onChange={(ev) => setSwitchChecked(ev.target.checked)} />
+                <Typography variant="body1">Nodes</Typography>
+            </FormControl>
+            {switchChecked ?
+                <List>
+                    {["Set Colour From", "Set Size From", 'Set Label From'].map((text, index) => (
+                        <>
+                            <ListItem key={text} disablePadding sx={{ display: 'flex', flexDirection: 'column', pl: 1, pr: 1 }}>
+                                <Typography variant='overline' sx={{ width: '100%' }}>{text}</Typography>
+                                <FormControl sx={{ width: '100%' }}>
+                                    <InputLabel id="demo-simple-select-label">Attribute</InputLabel>
+                                    <Select
+                                        labelId="demo-simple-select-label"
+                                        id="demo-simple-select"
+                                        value={text == "Set Colour From" ? nodeColourAttribute : text == "Set Size From" ? nodeSizeAttribute : nodeLabelAttribute}
+                                        label={text + " Attribute"}
+                                        onChange={(ev) => { handleAttributeChange(text, ev, labelValue, true) }}
+                                    >
+                                        <MenuItem value="Constant">{text == "Set Colour From" ? "Constant Colour" : text == "Set Size From" ? "Constant Size" : "A Constant Label"}</MenuItem>
+                                        {Object.keys(cy?.nodes()[0]?.json().data ? cy?.nodes()[0]?.json().data : {}).map((key, i) => {
+                                            if (cy?.nodes()[0]?.json().data[key] != null) {
+                                                if (text == "Set Colour From" || text == "Set Label From") {
                                                     return <MenuItem value={key}>{key == 'id' ? "Input Label" : key.split("_").join(" ")}</MenuItem>
+                                                } else {
+                                                    if (isNumerical[key]) {
+                                                        return <MenuItem value={key}>{key == 'id' ? "Input Label" : key.split("_").join(" ")}</MenuItem>
+                                                    }
                                                 }
+
                                             }
 
-                                        }
+                                        })}
+                                        {text == "Set Label From" ? <MenuItem value="none">No label</MenuItem> : []}
+                                    </Select>
+                                </FormControl>
+                            </ListItem>
 
-                                    })}
+                            {text == "Set Colour From" ?
+                                nodeColourAttribute != "" ? <ColourSelector key = "node" setStylesheet={setStylesheet} attribute={nodeColourAttribute} key={nodeColourAttribute} label={nodeColourLabels} c={nodeC} type="node" /> : <></>
+                                : text == "Set Size From" ?
+                                    nodeSizeAttribute != "" ? <SizeSelector key="node" setStylesheet={setStylesheet} attribute={nodeSizeAttribute} label={nodeSizeLabels} type="node" /> : <></>
+                                    : nodeLabelAttribute == "Constant" ? <FormControl sx={{ p: 1 }}><TextField label='Label for all nodes' value={labelValue} onChange={(ev) => { setLabelValue(ev.target.value); handleAttributeChange("Set Label From", { target: { value: "Constant" } }, ev.target.value, true) }} /></FormControl> : <></>}
+                            <br />
+                        </>
+                    ))}
+                    <ListItem key="Set Label Size From" disablePadding sx={{ display: 'flex', flexDirection: 'column', pl: 1, pr: 1 }}>
+                        <Typography variant='overline' sx={{ width: '100%' }}>Set Label Size From</Typography>
+                        <FormControl sx={{ width: '100%' }}>
+                            <InputLabel id="demo-simple-select-label">Attribute</InputLabel>
+                            <Select
+                                labelId="demo-simple-select-label"
+                                id="demo-simple-select"
+                                value={nodeLabelSizeAttribute}
+                                label={"Set Label Size From Attribute"}
+                                onChange={(ev) => { handleAttributeChange("Set Label Size From", ev, nodeLabelSize, true) }}
+                            >
+                                <MenuItem value="Constant">A Constant Size</MenuItem>
+                                <MenuItem value="Node_Size">Node Size</MenuItem>
 
-                                </Select>
-                            </FormControl>
-                        </ListItem>
-                        {text == "Set Colour From" ?
-                            colourAttribute != "" ? <ColourSelector setStylesheet={setStylesheet} attribute={colourAttribute} key={colourAttribute} label={colourLabels} c={c} /> : <></>
-                            : sizeAttribute != "" ? <SizeSelector setStylesheet={setStylesheet} attribute={sizeAttribute} label={sizeLabels} /> : <></>}
-                        <br />
-                    </>
-                ))}
-            </List>
+                            </Select>
+                        </FormControl>
+                    </ListItem>
+                    {nodeLabelSizeAttribute == "Constant" ? <FormControl sx={{ p: 1 }}><TextField label='Size for all labels' value={nodeLabelSize} onChange={(ev) => { setNodeLabelSize(ev.target.value); handleAttributeChange("Set Label Size From", { target: { value: "Constant" } }, ev.target.value, true) }} type="number" /></FormControl> : <></>}
+                </List>
+                : <List>
+                    {["Set Colour From", "Set Size From", 'Set Label From'].map((text, index) => (
+                        <>
+                            <ListItem key={text} disablePadding sx={{ display: 'flex', flexDirection: 'column', pl: 1, pr: 1 }}>
+                                <Typography variant='overline' sx={{ width: '100%' }}>{text}</Typography>
+                                <FormControl sx={{ width: '100%' }}>
+                                    <InputLabel id="demo-simple-select-label">Attribute</InputLabel>
+                                    <Select
+                                        labelId="demo-simple-select-label"
+                                        id="demo-simple-select"
+                                        value={text == "Set Colour From" ? edgeColourAttribute : text == "Set Size From" ? edgeSizeAttribute : edgeLabelAttribute}
+                                        label={text + " Attribute"}
+                                        onChange={(ev) => { handleAttributeChange(text, ev, edgeLabelValue, false) }}
+                                    >
+                                        <MenuItem value="Constant">{text == "Set Colour From" ? "Constant Colour" : text == "Set Size From" ? "Constant Size" : "A Constant Label"}</MenuItem>
+                                        {text == "Set Colour From" || text == "Set Label From" ? <MenuItem value="id">Input Label</MenuItem> : []}
+                                        {text == "Set Colour From" || text == "Set Size From" ? <MenuItem value="source">Source Node</MenuItem> : []}
+                                        {text == "Set Colour From" || text == "Set Size From" ? <MenuItem value="target">Target Node</MenuItem> : []}
+                                        {text == "Set Label From" ? <MenuItem value="none">No label</MenuItem> : []}
+                                    </Select>
+                                </FormControl>
+                            </ListItem>
+                            {text == "Set Colour From" ?
+                                edgeColourAttribute == "id" || edgeColourAttribute == "Constant" ? <ColourSelector key="edge" setStylesheet={setStylesheet} attribute={edgeColourAttribute} key={edgeColourAttribute} label={edgeColourLabels} c={edgeC} type="edge" /> : <></>
+                                : text == "Set Size From" ? edgeSizeAttribute == "Constant" ? <SizeSelector key="edge" setStylesheet={setStylesheet} attribute={edgeSizeAttribute} label={edgeSizeLabels} type="edge" /> : <></>
+                                    : text == "Set Label From" ? edgeLabelAttribute == "Constant" ? <FormControl sx={{ p: 1 }}><TextField label='Label for all nodes' value={edgeLabelValue} onChange={(ev) => { setEdgeLabelValue(ev.target.value); handleAttributeChange("Set Label From", { target: { value: "Constant" } }, ev.target.value, false) }} /></FormControl> : <></> : <></>}
+                            <br />
+                        </>
+                    ))}
+                    <ListItem key="Set Label Size From" disablePadding sx={{ display: 'flex', flexDirection: 'column', pl: 1, pr: 1 }}>
+                        <Typography variant='overline' sx={{ width: '100%' }}>Set Label Size From</Typography>
+                        <FormControl sx={{ width: '100%' }}>
+                            <InputLabel id="demo-simple-select-label">Attribute</InputLabel>
+                            <Select
+                                labelId="demo-simple-select-label"
+                                id="demo-simple-select"
+                                value={edgeLabelSizeAttribute}
+                                label={"Set Label Size From Attribute"}
+                                onChange={(ev) => { handleAttributeChange("Set Label Size From", ev, edgeLabelSize, false) }}
+                            >
+                                <MenuItem value="Constant">A Constant Size</MenuItem>
+                                <MenuItem value="Edge_Size">Edge Size</MenuItem>
+
+                            </Select>
+                        </FormControl>
+                    </ListItem>
+                    {edgeLabelSizeAttribute == "Constant" ? <FormControl sx={{ p: 1 }}><TextField label='Size for all labels' value={edgeLabelSize} onChange={(ev) => { setEdgeLabelSize(ev.target.value); handleAttributeChange("Set Label Size From", { target: { value: "Constant" } }, ev.target.value, false) }} type="number" /></FormControl> : <></>}
+                </List>
+            }
         </Drawer>
 
         <CytoscapeComponent cy={setCy} layout={{ name: 'cose' }} elements={[...elements]} style={{ width: '90%', height: '400px' }}
