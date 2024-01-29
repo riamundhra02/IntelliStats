@@ -111,7 +111,6 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
     const [colour, setColour] = useState(c)
 
     useEffect(() => {
-        // console.log(attribute)
         if (colour !== c) {
             setColour(c)
             c.forEach((newColour, i) => {
@@ -144,7 +143,6 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
                                     }
                             })
                         }
-                        console.log(copy)
                         return copy
                     })
                 } else {
@@ -173,7 +171,6 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
                                     }
                             })
                         }
-                        console.log(copy)
                         return copy
                     })
                 }
@@ -215,7 +212,6 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
                             }
                     })
                 }
-                console.log(copy)
                 return copy
             })
         } else {
@@ -244,7 +240,6 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
                             }
                     })
                 }
-                console.log(copy)
                 return copy
             })
         }
@@ -279,9 +274,9 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
     const [constant, setConstant] = useState()
 
     useEffect(() => {
-        if(type=="node"){
+        if (type == "node") {
             setConstant(30)
-        }else {
+        } else {
             setConstant(5)
         }
     }, [])
@@ -299,7 +294,6 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
     }
 
     useEffect(() => {
-        console.log(label, attribute)
         if (attribute == "Constant") {
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
@@ -336,7 +330,6 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
                 label.forEach((l) => {
                     let index = copy.findIndex((obj) => obj.selector == `node[${attribute} = "${l}"]`)
                     let size = getSize(l, min, max)
-                    console.log(index, size)
                     if (index >= 0) {
                         let style = { ...copy[index]["style"] }
                         style["height"] = size
@@ -367,7 +360,6 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
                 let indexes = copy.map((obj, index) => { if (obj.selector.includes(type)) return index }).filter(item => item !== undefined);
-                console.log(indexes)
                 if (indexes.length >= 0) {
                     indexes.forEach((index) => {
                         let style = { ...copy[index]["style"] }
@@ -392,7 +384,6 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
                             }
                     })
                 }
-                console.log(copy)
                 return copy
             })
         } else if (eventType == "min") {
@@ -402,7 +393,6 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
                 label.forEach((l) => {
                     let index = copy.findIndex((obj) => obj.selector == `node[${attribute} = "${l}"]`)
                     let size = getSize(l, ev.target.value, max)
-                    console.log(index, size)
                     if (index >= 0) {
                         let style = { ...copy[index]["style"] }
                         style["height"] = size
@@ -431,7 +421,6 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
                 label.forEach((l) => {
                     let index = copy.findIndex((obj) => obj.selector == `node[${attribute} = "${l}"]`)
                     let size = getSize(l, min, ev.target.value)
-                    console.log(index, size)
                     if (index >= 0) {
                         let style = { ...copy[index]["style"] }
                         style["height"] = size
@@ -471,60 +460,9 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
     )
 }
 
-export default function NetworkGraph({ elements, directed }) {
-    const [stylesheet, setStylesheet] = useState([
-        {
-            selector: "node",
-            style: {
-                "label": "data(id)",
-                "text-valign": "center",
-                "text-halign": "center",
-                "height": 60,
-                "width": 60,
-                'background-color': "gray"
-            }
-        },
-        {
-            selector: "edge",
-            style: {
-                "target-arrow-shape": directed ? "triangle" : "none",
-                "target-arrow-width": "match-line",
-                "curve-style": "bezier",
-                "arrow-scale": 1.5,
-                'background-color': "gray",
-                'width': 10
-            }
-        },
-        {
-            selector: "edge[label]",
-            style: {
-                "label": "data(label)",
-                "text-rotation": "autorotate",
-                "text-margin-x": "0x",
-                "text-margin-y": "0px",
-                "text-valign": 'top',
-                "text-background-color": 'white',
-                "text-background-opacity": 1,
-                "text-background-padding": '3px'
-            }
-        },
-    ])
+export default function NetworkGraph({ elements, directed, stylesheet, setStylesheet }) {
+    // console.log({ elements, directed, stylesheet, setStylesheet })
 
-    useEffect(() => {
-        setStylesheet(pstylesheet => {
-            let copy = [...pstylesheet].filter(obj => obj.selector !== 'edge')
-            copy.push({
-                selector: "edge",
-                style: {
-                    "target-arrow-shape": directed ? "triangle" : "none",
-                    "curve-style": "bezier",
-                    "arrow-scale": 1.5,
-                    'background-color': "gray"
-                }
-            })
-            return copy
-        })
-    }, [directed])
     const [cy, setCy] = useState(undefined)
     const [open, setOpen] = useState(false);
     const [nodeColourAttribute, setNodeColourAttribute] = useState("")
@@ -547,6 +485,22 @@ export default function NetworkGraph({ elements, directed }) {
     const [expand, setExpand] = useState(2)
     const [markovOpen, setMarkovOpen] = useState(false)
     const [switchChecked, setSwitchChecked] = useState(true)
+
+    useEffect(() => {
+        setStylesheet(pstylesheet => {
+            let copy = [...pstylesheet].filter(obj => obj.selector !== 'edge')
+            copy.push({
+                selector: "edge",
+                style: {
+                    "target-arrow-shape": directed ? "triangle" : "none",
+                    "curve-style": "bezier",
+                    "arrow-scale": 1.5,
+                    'background-color': "gray"
+                }
+            })
+            return copy
+        })
+    }, [directed])
 
     function generateColours(quantity) {
         let colours = [];
@@ -631,7 +585,6 @@ export default function NetworkGraph({ elements, directed }) {
                             }
                         })
                     }
-                    console.log(copy)
                     return copy
                 })
 
@@ -729,7 +682,7 @@ export default function NetworkGraph({ elements, directed }) {
                             indexes.forEach((index) => {
                                 let style = { ...copy[index]["style"] }
                                 let selector = copy[index]["selector"]
-                                style["width"] = function (ele) { return (ele.source()[0].numericStyle("width")* 0.1) }
+                                style["width"] = function (ele) { return (ele.source()[0].numericStyle("width") * 0.1) }
                                 copy[index] = {
                                     selector: selector,
                                     style: style
@@ -739,7 +692,7 @@ export default function NetworkGraph({ elements, directed }) {
                             copy.push({
                                 selector: 'edge',
                                 style: {
-                                    'width': function (ele) { return (ele.source()[0].numericStyle("width")* 0.1) },
+                                    'width': function (ele) { return (ele.source()[0].numericStyle("width") * 0.1) },
                                 }
                             })
                         }
@@ -763,7 +716,7 @@ export default function NetworkGraph({ elements, directed }) {
                             copy.push({
                                 selector: 'edge',
                                 style: {
-                                    'width': function (ele) { return (ele.target()[0].numericStyle("width")* 0.1) },
+                                    'width': function (ele) { return (ele.target()[0].numericStyle("width") * 0.1) },
                                 }
                             })
                         }
@@ -1044,7 +997,7 @@ export default function NetworkGraph({ elements, directed }) {
                             </ListItem>
 
                             {text == "Set Colour From" ?
-                                nodeColourAttribute != "" ? <ColourSelector key = "node" setStylesheet={setStylesheet} attribute={nodeColourAttribute} key={nodeColourAttribute} label={nodeColourLabels} c={nodeC} type="node" /> : <></>
+                                nodeColourAttribute != "" ? <ColourSelector key="node" setStylesheet={setStylesheet} attribute={nodeColourAttribute} key={nodeColourAttribute} label={nodeColourLabels} c={nodeC} type="node" /> : <></>
                                 : text == "Set Size From" ?
                                     nodeSizeAttribute != "" ? <SizeSelector key="node" setStylesheet={setStylesheet} attribute={nodeSizeAttribute} label={nodeSizeLabels} type="node" /> : <></>
                                     : nodeLabelAttribute == "Constant" ? <FormControl sx={{ p: 1 }}><TextField label='Label for all nodes' value={labelValue} onChange={(ev) => { setLabelValue(ev.target.value); handleAttributeChange("Set Label From", { target: { value: "Constant" } }, ev.target.value, true) }} /></FormControl> : <></>}

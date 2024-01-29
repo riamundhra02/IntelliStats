@@ -89,7 +89,45 @@ function App() {
         checked: true,
         tabValue: 0,
         xAxis: 0,
-        zAxis: 1
+        zAxis: 1,
+        directed: true,
+        stylesheet: [
+            {
+                selector: "node",
+                style: {
+                    "label": "data(id)",
+                    "text-valign": "center",
+                    "text-halign": "center",
+                    "height": 60,
+                    "width": 60,
+                    'background-color': "gray"
+                }
+            },
+            {
+                selector: "edge",
+                style: {
+                    "target-arrow-shape": "triangle",
+                    "target-arrow-width": "match-line",
+                    "curve-style": "bezier",
+                    "arrow-scale": 1.5,
+                    'background-color': "gray",
+                    'width': 10
+                }
+            },
+            {
+                selector: "edge[label]",
+                style: {
+                    "label": "data(label)",
+                    "text-rotation": "autorotate",
+                    "text-margin-x": "0x",
+                    "text-margin-y": "0px",
+                    "text-valign": 'top',
+                    "text-background-color": 'white',
+                    "text-background-opacity": 1,
+                    "text-background-padding": '3px'
+                }
+            },
+        ]
     }
 
     function removeIdxFromGraphs(idx) {
@@ -250,7 +288,7 @@ function App() {
             setRegression((regression) => {
                 return [
                     ...regression,
-                    ...m.graph
+                    ...(m.graph.map(graph => {return ({template: true, ...graph})}))
                 ]
             })
         });
@@ -260,7 +298,7 @@ function App() {
             if (conf) {
                 setDataSources(m.data)
 
-                setRegression(m.graph)
+                setRegression(m.graph.map(graph => {return ({template: true, ...graph})}))
             }
 
         });
@@ -272,7 +310,8 @@ function App() {
                     {
                         idx: m,
                         type: 'regression',
-                        states: graphStates
+                        states: graphStates,
+                        template: false
                     }
                 ]
             })
@@ -285,7 +324,8 @@ function App() {
                     {
                         idx: m,
                         type: 'network graph',
-                        states: graphStates
+                        states: graphStates,
+                        template: false
                     }
                 ]
             })
@@ -348,7 +388,7 @@ function App() {
         //     }
         // }}
         >
-           <Graph idx={i} projectSaveClicked={projectSaveClicked} removeIdxFromGraphs={removeIdxFromGraphs} states={v.states} selectedIndexes={selectedGraphIndexes} addToTemplate={addToTemplate} className="graph" type={v.type}/>
+           <Graph idx={i} template={v.template} projectSaveClicked={projectSaveClicked} removeIdxFromGraphs={removeIdxFromGraphs} states={v.states} selectedIndexes={selectedGraphIndexes} addToTemplate={addToTemplate} className="graph" type={v.type}/>
         </Button >
     })
 

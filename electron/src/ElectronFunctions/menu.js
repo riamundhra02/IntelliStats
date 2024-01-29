@@ -120,10 +120,10 @@ function importTemplate(win) {
             }
             let parsedData = JSON.parse(data)
             let formattedGraphs = parsedData.graph.map((state, i) => {
-                return { states: state, idx: v++ }
+                return { states: state, idx: v++, type: state.type }
             })
             let formattedDataSources = parsedData.data.map((state, i) => {
-                return { states: state, idx: d++ }
+                return { ...state, idx: d++ }
             })
             let formattedData = { data: formattedDataSources, graph: formattedGraphs }
             win.webContents.send('importTemplate', formattedData)
@@ -153,7 +153,7 @@ function openProject(win) {
             let parsedData = JSON.parse(data)
             let v = 0;
             let formattedGraphs = parsedData.graph.map((state, i) => {
-                return { states: state, idx: v++ }
+                return { states: state, idx: v++ , type: state.type}
             })
             let d = 0;
             let formattedDataSources = parsedData.data.map((state, i) => {

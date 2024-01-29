@@ -23,7 +23,7 @@ import Tab from '@mui/material/Tab';
 import CustomTabPanel from './CustomTabPanel'
 
 
-export default function Graph({ type, idx, removeIdxFromGraphs, states, selectedIndexes, addToTemplate, projectSaveClicked }) {
+export default function Graph({ template, type, idx, removeIdxFromGraphs, states, selectedIndexes, addToTemplate, projectSaveClicked }) {
     const [model, setModel] = useState(states.model);
     const [method, setMethod] = useState(states.method);
     const [xdata, setXData] = useState(states.xdata)
@@ -36,21 +36,57 @@ export default function Graph({ type, idx, removeIdxFromGraphs, states, selected
     const [numberVar, setNumberVar] = useState(states.numberVar)
     const [regressionExpr, setRegressionExpr] = useState(states.regressionExpr)
     const [checked, setChecked] = useState(states.checked)
-    const [mouseDown, setMouseDown] = useState(false)
     const [bannerOpen, setBannerOpen] = useState(false)
     const [tabValue, setTabValue] = useState(states.tabValue)
     const [xAxis, setXAxis] = useState(states.xAxis)
     const [zAxis, setZAxis] = useState(states.zAxis)
-    const [directed, setDirected] = useState(true)
+    const [directed, setDirected] = useState(states.directed)
+    const [stylesheet, setStylesheet] = useState([])
 
+    useEffect(() => {
+        if (template) {
+            setStylesheet(pstylesheet => {
+                let copy = [...states.stylesheet]
+                // console.log(copy)
+                copy.forEach(style => {
+                    Object.keys(style.style).forEach(key => {
+                        console.log(style.style[key])
+                        if (style.style[key].isFunction) {
+                            var func = new Function(`return ${style.style[key]?.str}`)
+                            // console.log(func(), "hello")
+                            style.style[key] = func()
+                        } else {
+                            // console.log("hello")
+                            style.style[key] = style.style[key].str
+                        }
+                        console.log(style.style)
+                    })
 
-
+                })
+                // console.log(copy)
+                return copy
+            })
+        } else {
+            setStylesheet(states.stylesheet)
+        }
+    }, [template, states])
 
     const multipleReg = Array(Number(numberVar)).fill(0)
     registerTransform(transform.regression)
 
     useEffect(() => {
         if (selectedIndexes.includes(idx) || projectSaveClicked) {
+            let copy = [...stylesheet]
+            copy.forEach(style => {
+                Object.keys(style.style).forEach(key => {
+                    if (typeof (style.style[key]) == "function") {
+                        style.style[key] = { isFunction: true, str: style.style[key].toString() }
+                    } else {
+                        style.style[key] = { isFunction: false, str: style.style[key] }
+                    }
+                })
+            })
+            console.log(copy)
             addToTemplate({
                 model: model,
                 method: method,
@@ -62,7 +98,13 @@ export default function Graph({ type, idx, removeIdxFromGraphs, states, selected
                 ydata: ydata,
                 tabValue: tabValue,
                 xAxis: xAxis,
-                zAxis: zAxis
+                zAxis: zAxis,
+                source: source,
+                target: target,
+                label: label,
+                directed: directed,
+                stylesheet: copy,
+                type: type
             }, idx, 'graph')
         }
 
@@ -107,7 +149,7 @@ export default function Graph({ type, idx, removeIdxFromGraphs, states, selected
             let newLabel = label.data.slice(0, i)
             let nodes = new Set([...newSource, ...newTarget])
             nodes = Array.from(nodes.values())
-            nodes = nodes.map((v, i) => { return { data: { id: v} } })
+            nodes = nodes.map((v, i) => { return { data: { id: v } } })
             newLabel = newLabel.map((v, i) => { return { data: { source: newSource[i], target: newTarget[i], label: `${v}` } } })
             dataAux = [...nodes, ...newLabel]
         }
@@ -256,7 +298,7 @@ export default function Graph({ type, idx, removeIdxFromGraphs, states, selected
             <Grid item xs={1}>
                 <Button onDrop={dropY} onDragOver={allowDrop}>Insert Y Data</Button>
             </Grid>
-            <Grid item xs={model == 'multiple' && tabValue == 1 ? 8 : 7} onMouseDown={(ev) => { setMouseDown(true) }} onMouseUp={(ev) => { setMouseDown(false) }}>
+            <Grid item xs={model == 'multiple' && tabValue == 1 ? 8 : 7} >
                 {data[0] ?
                     data.length > 1 ?
                         <>
@@ -285,14 +327,38 @@ export default function Graph({ type, idx, removeIdxFromGraphs, states, selected
     </>
         :
         <>
-            <NetworkGraph elements={data} directed={directed}/>
+            <NetworkGraph elements={data} directed={directed} stylesheet={stylesheet} setStylesheet={setStylesheet} />
             <Grid container alignItems="center" justifyContent="center" alignContent='center' direction='row' columns={4}>
                 <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropSource(ev) }} onDragOver={allowDrop}>Source Nodes</Button></Grid>
                 <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropTarget(ev) }} onDragOver={allowDrop}>Target Nodes</Button></Grid>
                 <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropLabel(ev) }} onDragOver={allowDrop}>Edge Labels</Button></Grid>
                 <Grid item xs={1} alignItems='center' alignContent='center'>
                     <Typography variant='overline'>
-                        <Checkbox checked={directed} onChange={(ev) => setDirected(ev.target.checked)} /> Directed?
+                        <Checkbox checked={directed} onChange={(ev) => {
+                            setDirected(ev.target.checked); setStylesheet(pstylesheet => {
+                                let copy = [...pstylesheet]
+                                let indexes = copy.map((obj, index) => { if (obj.selector.includes('edge')) return index }).filter(item => item !== undefined);
+                                if (indexes.length >= 0) {
+                                    indexes.forEach((index) => {
+                                        let style = { ...copy[index]["style"] }
+                                        let selector = copy[index]["selector"]
+                                        style["target-arrow-shape"] = ev.target.checked ? "triangle" : "none"
+                                        copy[index] = {
+                                            selector: selector,
+                                            style: style
+                                        }
+                                    })
+                                } else {
+                                    copy.push({
+                                        selector: 'edge',
+                                        style: {
+                                            'target-arrow-shape': ev.target.checked ? "triangle" : "none"
+                                        }
+                                    })
+                                }
+                                return copy
+                            })
+                        }} /> Directed?
                         </Typography>
                 </Grid>
 

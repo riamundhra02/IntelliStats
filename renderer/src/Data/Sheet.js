@@ -39,7 +39,6 @@ const Renderer = (props) => {
                 // get starting and ending row, remember end could be before start
                 var startRow = Math.min(r.startRow.rowIndex, r.endRow.rowIndex);
                 var endRow = Math.max(r.startRow.rowIndex, r.endRow.rowIndex);
-                // console.log(r.columns.includes(props.column) && props.node.rowIndex >= startRow && props.node.rowIndex <= endRow)
                 if (r.columns.includes(props.column) && props.node.rowIndex >= startRow && props.node.rowIndex <= endRow) {
                     ret = true
                     return false
@@ -181,7 +180,6 @@ export default function Sheet({ data, exportClicked, setExportClicked, index, se
             setHeight(newHeight);
         }
     }, []);
-
     const columns = getColumns(data)
 
     return (
