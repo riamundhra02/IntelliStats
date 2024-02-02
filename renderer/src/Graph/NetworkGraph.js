@@ -74,6 +74,38 @@ const MaterialUISwitch = styled(Switch)(({ theme }) => ({
         borderRadius: 20 / 2,
     },
 }));
+const reset = (attribute, type, setStylesheet) => {
+    setStylesheet(pstylesheet => {
+        let copy = [...pstylesheet]
+        let indexes = copy.map((obj, index) => { if (obj.selector.includes(type)) return index }).filter(item => item !== undefined);
+        indexes.forEach((index) => {
+            let style = { ...copy[index]["style"] }
+            let selector = copy[index]["selector"]
+            if (attribute == "colour") {
+                delete style[`${type == "node" ? "background" : "line"}-color`]
+                if (type == "edge") {
+                    delete style["target-arrow-color"]
+                }
+                copy[index] = {
+                    selector: selector,
+                    style: style
+                }
+            } else {
+                if (type == "node") {
+                    delete style["height"]
+                }
+                delete style["width"]
+                copy[index] = {
+                    selector: selector,
+                    style: style
+                }
+            }
+
+        })
+
+        return copy
+    })
+}
 
 const MarkovModal = ({ expand, setExpand, inflate, setInflate, markovOpen, setMarkovOpen }) => {
     const style = {
@@ -113,6 +145,7 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
     useEffect(() => {
         if (colour !== c) {
             setColour(c)
+            reset("colour", type, setStylesheet)
             c.forEach((newColour, i) => {
                 let l = label[i]
                 if (attribute == "Constant") {
@@ -148,7 +181,7 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
                 } else {
                     setStylesheet(pstylesheet => {
                         let copy = [...pstylesheet]
-                        let index = copy.findIndex((obj) => obj.selector == `${type}[${type == "node" ? attribute : "label"} = "${l}"]`)
+                        let index = copy.findIndex((obj) => obj.selector == (l ? `${type}[${type == "node" ? attribute : "label"} = "${l}"]` : `${type}[^${attribute}]`))
                         if (index >= 0) {
                             let style = { ...copy[index]["style"] }
                             let selector = copy[index]["selector"]
@@ -162,7 +195,7 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
                             }
                         } else {
                             copy.push({
-                                selector: `${type}[${type == "node" ? attribute : "label"} = "${l}"]`,
+                                selector: l ? `${type}[${type == "node" ? attribute : "label"} = "${l}"]` : `${type}[^${attribute}]`,
                                 style: type == "node" ? {
                                     'background-color': newColour
                                 } : {
@@ -184,6 +217,7 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
             copy[i] = newColour
             return copy
         })
+
         if (attribute == "Constant") {
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
@@ -217,7 +251,8 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
         } else {
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
-                let index = copy.findIndex((obj) => obj.selector == `${type}[${type == "node" ? attribute : "label"} = "${l}"]`)
+                let index = copy.findIndex((obj) => obj.selector == (l ? `${type}[${type == "node" ? attribute : "label"} = "${l}"]` : `${type}[^${attribute}]`))
+                console.log(copy[index].selector == (l ? `${type}[${type == "node" ? attribute : "label"} = "${l}"]` : `${type}[^${attribute}]`))
                 if (index >= 0) {
                     let style = { ...copy[index]["style"] }
                     let selector = copy[index]["selector"]
@@ -231,7 +266,7 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
                     }
                 } else {
                     copy.push({
-                        selector: `${type}[${type == "node" ? attribute : "label"} = "${l}"]`,
+                        selector: l ? `${type}[${type == "node" ? attribute : "label"} = "${l}"]` : `${type}[^${attribute}]`,
                         style: type == "node" ? {
                             'background-color': newColour.css.backgroundColor
                         } : {
@@ -240,6 +275,7 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
                             }
                     })
                 }
+                console.log(copy)
                 return copy
             })
         }
@@ -257,7 +293,7 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
                                 <ColorPicker value={colour[i]} hideTextfield disableAlpha onChange={(ev) => handleChange(ev, i, l)} />
                             </Grid>
                             <Grid item xs={3}>
-                                <p>{l !== null ? l : "Nodes with no valid value"}</p>
+                                <p>{l !== undefined ? l : `${type}s with no valid value`}</p>
                             </Grid>
                         </Grid>
                     )
@@ -272,6 +308,7 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
     const [min, setMin] = useState(10)
     const [max, setMax] = useState(50)
     const [constant, setConstant] = useState()
+    const [undefinedVal, setUndefinedVal] = useState(30)
 
     useEffect(() => {
         if (type == "node") {
@@ -282,10 +319,10 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
     }, [])
 
     const getSize = (l, min, max) => {
-        let minimumLabel = Math.min(...label)
-        let maximumLabel = Math.max(...label)
+        let minimumLabel = Math.min(...(label.filter(l => l !== undefined)))
+        let maximumLabel = Math.max(...(label.filter(l => l !== undefined)))
         if (minimumLabel == maximumLabel) {
-            return (max - min) / 2
+            return ((max - min) / 2) + min
         } else {
             let step = (max - min) / (maximumLabel - minimumLabel)
             return (l - minimumLabel) * step + min
@@ -294,6 +331,7 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
     }
 
     useEffect(() => {
+        reset("size", type, setStylesheet)
         if (attribute == "Constant") {
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
@@ -387,12 +425,45 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
                 return copy
             })
         } else if (eventType == "min") {
-            setMin(ev.target.value)
+
+            let num = parseInt(ev.target.value)
+            num = num > 0 ? num < max ? num : max : 0
+            setMin(num)
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
                 label.forEach((l) => {
                     let index = copy.findIndex((obj) => obj.selector == `node[${attribute} = "${l}"]`)
-                    let size = getSize(l, ev.target.value, max)
+                    let size = getSize(l, num, max)
+                    if (index >= 0) {
+                        let style = { ...copy[index]["style"] }
+                        style["height"] = size
+                        style["width"] = size
+                        copy[index] = {
+                            selector: `node[${attribute} = "${l}"]`,
+                            style: style
+                        }
+                    } else {
+                        copy.push({
+                            selector: `node[${attribute} = "${l}"]`,
+                            style: {
+                                'height': size,
+                                'width': size
+                            }
+                        })
+                    }
+                })
+                return copy
+            })
+        } else if (eventType == "max") {
+
+            let num = parseInt(ev.target.value)
+            num = num > min ? num : min
+            setMax(num)
+            setStylesheet(pstylesheet => {
+                let copy = [...pstylesheet]
+                label.forEach((l) => {
+                    let index = copy.findIndex((obj) => obj.selector == `node[${attribute} = "${l}"]`)
+                    let size = getSize(l, min, num)
                     if (index >= 0) {
                         let style = { ...copy[index]["style"] }
                         style["height"] = size
@@ -414,27 +485,27 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
 
                 return copy
             })
-        } else if (eventType == "max") {
-            setMax(ev.target.value)
+        } else if (eventType == "undefined") {
+            let num = parseInt(ev.target.value)
+            setUndefinedVal(num)
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
                 label.forEach((l) => {
-                    let index = copy.findIndex((obj) => obj.selector == `node[${attribute} = "${l}"]`)
-                    let size = getSize(l, min, ev.target.value)
+                    let index = copy.findIndex((obj) => obj.selector == `node[^${attribute}]`)
                     if (index >= 0) {
                         let style = { ...copy[index]["style"] }
-                        style["height"] = size
-                        style["width"] = size
+                        style["height"] = num
+                        style["width"] = num
                         copy[index] = {
-                            selector: `node[${attribute} = "${l}"]`,
+                            selector: `node[^${attribute}]`,
                             style: style
                         }
                     } else {
                         copy.push({
-                            selector: `node[${attribute} = "${l}"]`,
+                            selector: `node[^${attribute}]`,
                             style: {
-                                'height': size,
-                                'width': size
+                                'height': num,
+                                'width': num
                             }
                         })
                     }
@@ -453,6 +524,8 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
                     <TextField label="Min" type="number" value={min} onChange={(ev) => handleSizeChange(ev, "min")} />
                     <br />
                     <TextField label="Max" type="number" value={max} onChange={(ev) => handleSizeChange(ev, "max")} />
+                    <br />
+                    <TextField label="Size for nodes with no defined value" type="number" value={undefinedVal} onChange={(ev) => handleSizeChange(ev, "undefined")} />
                 </>}
 
 
@@ -460,8 +533,7 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
     )
 }
 
-export default function NetworkGraph({ elements, directed, stylesheet, setStylesheet }) {
-    // console.log({ elements, directed, stylesheet, setStylesheet })
+export default function NetworkGraph({ elements, directed, stylesheet, setStylesheet, setSource, setTarget }) {
 
     const [cy, setCy] = useState(undefined)
     const [open, setOpen] = useState(false);
@@ -485,6 +557,7 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
     const [expand, setExpand] = useState(2)
     const [markovOpen, setMarkovOpen] = useState(false)
     const [switchChecked, setSwitchChecked] = useState(true)
+    const [length, setLength] = useState(elements.length)
 
     useEffect(() => {
         setStylesheet(pstylesheet => {
@@ -522,13 +595,13 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
         setNodeColourLabels(nodeColourAttribute == "Constant" ? ["Colour for all nodes"] : Array.from(new Set(cy?.nodes().map((ele, i) => {
             return (ele.json().data[nodeColourAttribute])
         }))))
-    }, [nodeColourAttribute, cy])
+    }, [nodeColourAttribute, cy, elements])
 
     useEffect(() => {
         setEdgeColourLabels(edgeColourAttribute == "Constant" ? ["Colour for all edges"] : edgeColourAttribute == "id" ? Array.from(new Set(cy?.$("edge").map((ele, i) => {
             return (ele.json().data["label"])
         }))) : [])
-    }, [edgeColourAttribute, cy])
+    }, [edgeColourAttribute, cy, elements])
 
     useEffect(() => {
         setNodeSizeLabels(nodeSizeAttribute == "Constant" ? ["Size for all nodes"] : Array.from(new Set(cy?.nodes().map((ele, i) => {
@@ -791,6 +864,27 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
                 ele.data("In_Degree", `${degree}`)
             });
         }
+        setSource(psource => {
+            let copy = { ...psource }
+            copy.data = copy.data.map((node, i) => {
+                let degree = cy?.getElementById(`${node.id}`).data()["In_Degree"]
+                return ({ ...node, 'In_Degree': degree })
+            })
+
+            return copy
+        })
+
+
+        setTarget(ptarget => {
+            let copy = { ...ptarget }
+            copy.data = copy.data.map((node, i) => {
+                let degree = cy?.getElementById(`${node.id}`).data()["In_Degree"]
+                return ({ ...node, 'In_Degree': degree })
+
+            })
+
+            return copy
+        })
     }
 
     const getOutDegrees = (ev) => {
@@ -802,6 +896,28 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
                 ele.data("Out_Degree", `${degree}`)
             });
         }
+
+        setSource(psource => {
+            let copy = { ...psource }
+            copy.data = copy.data.map((node, i) => {
+                let degree = cy?.getElementById(`${node.id}`).data()["Out_Degree"]
+                return ({ ...node, 'Out_Degree': degree })
+
+            })
+
+            return copy
+        })
+
+        setTarget(ptarget => {
+            let copy = { ...ptarget }
+            copy.data = copy.data.map((node, i) => {
+                let degree = cy?.getElementById(`${node.id}`).data()["Out_Degree"]
+                return ({ ...node, 'Out_Degree': degree })
+
+            })
+
+            return copy
+        })
     }
 
     const getDegrees = (ev) => {
@@ -814,6 +930,28 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
 
             });
         }
+
+        setSource(psource => {
+            let copy = { ...psource }
+            copy.data = copy.data.map((node, i) => {
+                let degree = cy?.getElementById(`${node.id}`).data()["Total_Degree"]
+                return ({ ...node, 'Total_Degree': degree })
+
+            })
+
+            return copy
+        })
+
+        setTarget(ptarget => {
+            let copy = { ...ptarget }
+            copy.data = copy.data.map((node, i) => {
+                let degree = cy?.getElementById(`${node.id}`).data()["Total_Degree"]
+                return ({ ...node, 'Total_Degree': degree })
+
+            })
+
+            return copy
+        })
     }
 
     const getPageRank = (ev) => {
@@ -828,7 +966,30 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
 
             })
         }
+        setSource(psource => {
+            let copy = { ...psource }
+            copy.data = copy.data.map((node, i) => {
+                let degree = cy?.getElementById(`${node.id}`).data()["Page_Rank"]
+                return ({ ...node, 'Page_Rank': degree })
+
+            })
+
+            return copy
+        })
+
+        setTarget(ptarget => {
+            let copy = { ...ptarget }
+            copy.data = copy.data.map((node, i) => {
+                let degree = cy?.getElementById(`${node.id}`).data()["Page_Rank"]
+                return ({ ...node, 'Page_Rank': degree })
+
+            })
+
+            return copy
+        })
     }
+
+
     const getMarkovCluster = (ev) => {
         let eles = cy?.$()
         if (eles) {
@@ -846,7 +1007,31 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
                 })
             })
         }
+
+        setSource(psource => {
+            let copy = { ...psource }
+            copy.data = copy.data.map((node, i) => {
+                let degree = cy?.getElementById(`${node.id}`).data()["Cluster"]
+                return ({ ...node, 'Cluster': degree })
+
+            })
+
+            return copy
+        })
+
+        setTarget(ptarget => {
+            let copy = { ...ptarget }
+            copy.data = copy.data.map((node, i) => {
+                let degree = cy?.getElementById(`${node.id}`).data()["Cluster"]
+                return ({ ...node, 'Cluster': degree })
+
+            })
+
+            return copy
+        })
     }
+
+
     const getBetweennessCentrality = (ev) => {
         let eles = cy?.$()
         let nodes = cy?.nodes()
@@ -857,7 +1042,30 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
 
             });
         }
+        setSource(psource => {
+            let copy = { ...psource }
+            copy.data = copy.data.map((node, i) => {
+                let degree = cy?.getElementById(`${node.id}`).data()["Betweenness_Centrality"]
+                return ({ ...node, 'Betweenness_Centrality': degree })
+
+            })
+
+            return copy
+        })
+
+        setTarget(ptarget => {
+            let copy = { ...ptarget }
+            copy.data = copy.data.map((node, i) => {
+                let degree = cy?.getElementById(`${node.id}`).data()["Betweenness_Centrality"]
+                return ({ ...node, 'Betweenness_Centrality': degree })
+
+            })
+
+            return copy
+        })
     }
+
+
     const getClosenessCentrality = (ev) => {
         let eles = cy?.$()
         let nodes = cy?.nodes()
@@ -868,19 +1076,40 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
 
             });
         }
+        setSource(psource => {
+            let copy = { ...psource }
+            copy.data = copy.data.map((node, i) => {
+                let degree = cy?.getElementById(`${node.id}`).data()["Closeness_Centrality"]
+                return ({ ...node, 'Closeness_Centrality': degree })
+
+            })
+
+            return copy
+        })
+
+        setTarget(ptarget => {
+            let copy = { ...ptarget }
+            copy.data = copy.data.map((node, i) => {
+                let degree = cy?.getElementById(`${node.id}`).data()["Closeness_Centrality"]
+                return ({ ...node, 'Closeness_Centrality': degree })
+
+            })
+
+            return copy
+        })
     }
 
     useEffect(() => {
-        cy?.layout({ name: 'cose' }).run()
-        cy?.center()
-        cy?.fit()
+        if (elements.length != length) {
+            cy?.layout({ name: 'cose' }).run()
+            cy?.center()
+            cy?.fit()
+            setNodeColourAttribute("")
+            setNodeSizeAttribute("")
+            // cy?.nodes().removeData()
+            setLength(elements.length)
+        }
     }, [cy, elements])
-
-    useEffect(() => {
-        setNodeColourAttribute("")
-        setNodeSizeAttribute("")
-        cy?.nodes().removeData()
-    }, [elements])
 
     const mapButtonsToFuncs = {
         'In Degree': getInDegrees,
@@ -997,7 +1226,7 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
                             </ListItem>
 
                             {text == "Set Colour From" ?
-                                nodeColourAttribute != "" ? <ColourSelector key="node" setStylesheet={setStylesheet} attribute={nodeColourAttribute} key={nodeColourAttribute} label={nodeColourLabels} c={nodeC} type="node" /> : <></>
+                                nodeColourAttribute != "" ? <ColourSelector key="node" setStylesheet={setStylesheet} attribute={nodeColourAttribute} key={nodeColourLabels} label={nodeColourLabels} c={nodeC} type="node" /> : <></>
                                 : text == "Set Size From" ?
                                     nodeSizeAttribute != "" ? <SizeSelector key="node" setStylesheet={setStylesheet} attribute={nodeSizeAttribute} label={nodeSizeLabels} type="node" /> : <></>
                                     : nodeLabelAttribute == "Constant" ? <FormControl sx={{ p: 1 }}><TextField label='Label for all nodes' value={labelValue} onChange={(ev) => { setLabelValue(ev.target.value); handleAttributeChange("Set Label From", { target: { value: "Constant" } }, ev.target.value, true) }} /></FormControl> : <></>}
@@ -1046,7 +1275,7 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
                                 </FormControl>
                             </ListItem>
                             {text == "Set Colour From" ?
-                                edgeColourAttribute == "id" || edgeColourAttribute == "Constant" ? <ColourSelector key="edge" setStylesheet={setStylesheet} attribute={edgeColourAttribute} key={edgeColourAttribute} label={edgeColourLabels} c={edgeC} type="edge" /> : <></>
+                                edgeColourAttribute == "id" || edgeColourAttribute == "Constant" ? <ColourSelector key="edge" setStylesheet={setStylesheet} attribute={edgeColourAttribute} key={edgeColourLabels} label={edgeColourLabels} c={edgeC} type="edge" /> : <></>
                                 : text == "Set Size From" ? edgeSizeAttribute == "Constant" ? <SizeSelector key="edge" setStylesheet={setStylesheet} attribute={edgeSizeAttribute} label={edgeSizeLabels} type="edge" /> : <></>
                                     : text == "Set Label From" ? edgeLabelAttribute == "Constant" ? <FormControl sx={{ p: 1 }}><TextField label='Label for all nodes' value={edgeLabelValue} onChange={(ev) => { setEdgeLabelValue(ev.target.value); handleAttributeChange("Set Label From", { target: { value: "Constant" } }, ev.target.value, false) }} /></FormControl> : <></> : <></>}
                             <br />

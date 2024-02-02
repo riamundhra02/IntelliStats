@@ -47,23 +47,17 @@ export default function Graph({ template, type, idx, removeIdxFromGraphs, states
         if (template) {
             setStylesheet(pstylesheet => {
                 let copy = [...states.stylesheet]
-                // console.log(copy)
                 copy.forEach(style => {
                     Object.keys(style.style).forEach(key => {
-                        console.log(style.style[key])
                         if (style.style[key].isFunction) {
                             var func = new Function(`return ${style.style[key]?.str}`)
-                            // console.log(func(), "hello")
                             style.style[key] = func()
                         } else {
-                            // console.log("hello")
                             style.style[key] = style.style[key].str
                         }
-                        console.log(style.style)
                     })
 
                 })
-                // console.log(copy)
                 return copy
             })
         } else {
@@ -86,7 +80,6 @@ export default function Graph({ template, type, idx, removeIdxFromGraphs, states
                     }
                 })
             })
-            console.log(copy)
             addToTemplate({
                 model: model,
                 method: method,
@@ -149,8 +142,8 @@ export default function Graph({ template, type, idx, removeIdxFromGraphs, states
             let newLabel = label.data.slice(0, i)
             let nodes = new Set([...newSource, ...newTarget])
             nodes = Array.from(nodes.values())
-            nodes = nodes.map((v, i) => { return { data: { id: v } } })
-            newLabel = newLabel.map((v, i) => { return { data: { source: newSource[i], target: newTarget[i], label: `${v}` } } })
+            nodes = nodes.map((v, i) => { return { data: v } })
+            newLabel = newLabel.map((v, i) => { return { data: { source: newSource[i].id, target: newTarget[i].id, label: `${v}` } } })
             dataAux = [...nodes, ...newLabel]
         }
         setData(dataAux)
@@ -207,8 +200,7 @@ export default function Graph({ template, type, idx, removeIdxFromGraphs, states
             alert('Please select source data!')
             return
         }
-
-        setSource(data)
+        setSource({data: data.data.map((v,i) => {return ({id: v})}), dataset: data.dataset})
 
     }
 
@@ -220,7 +212,7 @@ export default function Graph({ template, type, idx, removeIdxFromGraphs, states
             return
         }
 
-        setTarget(data)
+        setTarget({data: data.data.map((v,i) => {return ({id: v})}), dataset: data.dataset})
 
     }
 
@@ -327,7 +319,7 @@ export default function Graph({ template, type, idx, removeIdxFromGraphs, states
     </>
         :
         <>
-            <NetworkGraph elements={data} directed={directed} stylesheet={stylesheet} setStylesheet={setStylesheet} />
+            <NetworkGraph elements={data} directed={directed} stylesheet={stylesheet} setStylesheet={setStylesheet} setSource={setSource} setTarget={setTarget}/>
             <Grid container alignItems="center" justifyContent="center" alignContent='center' direction='row' columns={4}>
                 <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropSource(ev) }} onDragOver={allowDrop}>Source Nodes</Button></Grid>
                 <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropTarget(ev) }} onDragOver={allowDrop}>Target Nodes</Button></Grid>

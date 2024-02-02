@@ -111,7 +111,7 @@ function App() {
                     "curve-style": "bezier",
                     "arrow-scale": 1.5,
                     'background-color': "gray",
-                    'width': 10
+                    'width': 5
                 }
             },
             {
@@ -278,6 +278,7 @@ function App() {
         });
 
         window.ipcRenderer.on('importTemplate', (event, m) => {
+            console.log(JSON.parse(JSON.stringify(m.graph[0])), m.graph[0])
             setDataSources((dataSources) => {
                 return [
                     ...dataSources,

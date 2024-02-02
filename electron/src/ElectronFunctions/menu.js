@@ -119,13 +119,16 @@ function importTemplate(win) {
                 return;
             }
             let parsedData = JSON.parse(data)
+            
             let formattedGraphs = parsedData.graph.map((state, i) => {
                 return { states: state, idx: v++, type: state.type }
             })
+            console.log(formattedGraphs[0].states.source)
             let formattedDataSources = parsedData.data.map((state, i) => {
                 return { ...state, idx: d++ }
             })
             let formattedData = { data: formattedDataSources, graph: formattedGraphs }
+            console.log(formattedData.graph[0].states.source)
             win.webContents.send('importTemplate', formattedData)
         })
 
