@@ -558,6 +558,7 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
     const [markovOpen, setMarkovOpen] = useState(false)
     const [switchChecked, setSwitchChecked] = useState(true)
     const [length, setLength] = useState(elements.length)
+    const [layoutAlgo, setlayoutAlgo] = useState("cose")
 
     useEffect(() => {
         setStylesheet(pstylesheet => {
@@ -628,6 +629,10 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
     const handleDrawerClose = () => {
         setOpen(false);
     };
+
+    const handleLayoutChange = (ev) => {
+        setlayoutAlgo(ev.target.value)
+    }
 
     const handleAttributeChange = (text, ev, label, isNode) => {
         if (isNode) {
@@ -1101,15 +1106,12 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
 
     useEffect(() => {
         if (elements.length != length) {
-            cy?.layout({ name: 'cose' }).run()
+            cy?.layout({ name: layoutAlgo }).run()
             cy?.center()
             cy?.fit()
-            setNodeColourAttribute("")
-            setNodeSizeAttribute("")
-            // cy?.nodes().removeData()
             setLength(elements.length)
         }
-    }, [cy, elements])
+    }, [cy, elements, layoutAlgo])
 
     const mapButtonsToFuncs = {
         'In Degree': getInDegrees,
@@ -1184,6 +1186,26 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
                 ))}
             </List>
             <MarkovModal inflate={inflate} setInflate={setInflate} expand={expand} setExpand={setExpand} markovOpen={markovOpen} setMarkovOpen={setMarkovOpen} />
+            <Divider />
+            <Typography variant='h6' align='center'>Layout</Typography>
+            <br />
+            <List>
+                <ListItem disablePadding sx={{ display: 'flex', flexDirection: 'column', pl: 1, pr: 1 }}>
+                    <FormControl sx={{ width: '100%'}}>
+                        <InputLabel id="demo-simple-select-label">Select Algorithm</InputLabel>
+                        <Select
+                            labelId="demo-simple-select-label"
+                            id="demo-simple-select"
+                            value={layoutAlgo}
+                            label="layout algorithm"
+                            onChange={(ev) => { handleLayoutChange(ev) }}
+                        >
+                            {["cose", "random", "grid", "circle", "concentric", "breadthfirst"].map((layout, i) => <MenuItem value={layout}>{layout}</MenuItem>)}
+                        </Select>
+                    </FormControl>
+                </ListItem>
+            </List>
+
             <Divider />
             <Typography variant='h6' align='center'>Style</Typography>
             <FormControl sx={{ display: "flex", flexDirection: "row", alignItems: 'center', justifyContent: 'center' }}>
@@ -1303,7 +1325,7 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
             }
         </Drawer>
 
-        <CytoscapeComponent cy={setCy} layout={{ name: 'cose' }} elements={[...elements]} style={{ width: '90%', height: '400px' }}
+        <CytoscapeComponent cy={setCy} layout={{ name: layoutAlgo }} elements={[...elements]} style={{ width: '90%', height: '400px' }}
             stylesheet={stylesheet} />
         <div style={{ display: 'flex', flexDirection: 'column', width: '5%', alignItems: 'center' }}>
             <Button onClick={(ev) => { cy?.center(); cy?.fit() }}><HomeIcon /></Button>
