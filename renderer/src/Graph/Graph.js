@@ -23,7 +23,7 @@ import Tab from '@mui/material/Tab';
 import CustomTabPanel from './CustomTabPanel'
 
 
-export default function Graph({ template, type, idx, removeIdxFromGraphs, states, selectedIndexes, addToTemplate, projectSaveClicked }) {
+export default function Graph({ containerApi, template, type, i, idx, removeIdxFromGraphs, states, selectedIndexes, addToTemplate, projectSaveClicked }) {
     const [model, setModel] = useState(states.model);
     const [method, setMethod] = useState(states.method);
     const [xdata, setXData] = useState(states.xdata)
@@ -69,7 +69,7 @@ export default function Graph({ template, type, idx, removeIdxFromGraphs, states
     registerTransform(transform.regression)
 
     useEffect(() => {
-        if (selectedIndexes.includes(idx) || projectSaveClicked) {
+        if (selectedIndexes.includes(i) || projectSaveClicked) {
             let copy = [...stylesheet]
             copy.forEach(style => {
                 Object.keys(style.style).forEach(key => {
@@ -98,10 +98,10 @@ export default function Graph({ template, type, idx, removeIdxFromGraphs, states
                 directed: directed,
                 stylesheet: copy,
                 type: type
-            }, idx, 'graph')
+            }, i, 'graph')
         }
 
-    }, [selectedIndexes, idx, model, method, order, numberVar, regressionExpr, checked, xdata, ydata, tabValue, xAxis, zAxis, projectSaveClicked])
+    }, [selectedIndexes, i, model, method, order, numberVar, regressionExpr, checked, xdata, ydata, tabValue, xAxis, zAxis, projectSaveClicked])
     useEffect(() => {
         if (model != "multiple") {
             setNumberVar(1)
@@ -230,7 +230,7 @@ export default function Graph({ template, type, idx, removeIdxFromGraphs, states
     function handleClose(ev) {
         let conf = window.confirm('Delete model?')
         if (conf) {
-            removeIdxFromGraphs(idx)
+            removeIdxFromGraphs(i, idx)
         }
     }
 

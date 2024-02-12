@@ -12,6 +12,11 @@ import TrapFocus from '@mui/material/Unstable_TrapFocus';
 import Fade from '@mui/material/Fade';
 import Grid from '@mui/material/Grid/Grid'
 import generatePDF, { Resolution, Margin } from 'react-to-pdf';
+import 'dockview/dist/styles/dockview.css';
+import {
+    DockviewReact,
+    DockviewDefaultTab,
+} from 'dockview';
 
 function App() {
     const [dataSources, setDataSources] = useState([])
@@ -31,6 +36,7 @@ function App() {
     const [saveClicked, setSaveClicked] = useState(false)
     const [projectSaveClicked, setProjectSaveClicked] = useState(false)
     const [continueClicked, setContinueClicked] = useState(false)
+    const [api, setApi] = useState(null)
     const pdfRef = useRef()
 
     const options = {
@@ -80,9 +86,9 @@ function App() {
         method: 'ols',
         xdata: [{ data: [], dataset: -1 }],
         ydata: { data: [], dataset: -1 },
-        source: {data: [], dataset: -1},
-        target: {data: [], dataset: -1},
-        label: {data: [], dataset: -1},
+        source: { data: [], dataset: -1 },
+        target: { data: [], dataset: -1 },
+        label: { data: [], dataset: -1 },
         order: 1,
         numberVar: 1,
         regressionExpr: '',
@@ -130,16 +136,20 @@ function App() {
         ]
     }
 
-    function removeIdxFromGraphs(idx) {
+    function removeIdxFromGraphs(i, idx) {
         let clone = [...regression]
-        clone.splice(idx, 1)
+        clone.splice(i, 1)
         setRegression(clone)
+        const panel = api.getPanel(`Model_${idx}`);
+        api.removePanel(panel);
     }
 
     function removeIdxFromData(idx) {
         let clone = [...dataSources]
         clone.splice(idx, 1)
         setDataSources(clone)
+        const panel = api.getPanel(`Data_${idx}`);
+        api.removePanel(panel);
     }
 
     useEffect(() => {
@@ -253,16 +263,28 @@ function App() {
     }, [])
 
     useEffect(() => {
+        let prevLen = dataSources.length
         window.ipcRenderer.on('Import', (event, m) => {
             setDataSources(
                 [
                     ...dataSources,
-                    {
-                        idx: m.idx,
-                        data: m.data
-                    }
+                    m
                 ]
             );
+
+            api.addPanel({
+                id: `Data_${m.idx}`,
+                component: `data`,
+                position: {
+                    direction: 'below'
+                },
+                params: {
+                    m: m,
+                    i: prevLen,
+
+                }
+
+            })
         });
 
         window.ipcRenderer.on('ExportData', (event, m) => {
@@ -278,33 +300,102 @@ function App() {
         });
 
         window.ipcRenderer.on('importTemplate', (event, m) => {
-            console.log(JSON.parse(JSON.stringify(m.graph[0])), m.graph[0])
+            let prevLen = dataSources.length
             setDataSources((dataSources) => {
                 return [
                     ...dataSources,
                     ...m.data
                 ]
             })
+            m.data.forEach((dataSource, i) => {
+                api.addPanel({
+                    id: `Data_${dataSource.idx}`,
+                    component: `data`,
+                    position: {
+                        direction: 'below'
+                    },
+                    params: {
+                        m: dataSource,
+                        i: i + prevLen,
 
+                    }
+
+                })
+            })
+
+            prevLen = regression.length
             setRegression((regression) => {
                 return [
                     ...regression,
-                    ...(m.graph.map(graph => {return ({template: true, ...graph})}))
+                    ...(m.graph.map(graph => { return ({ template: true, ...graph }) }))
                 ]
             })
+            m.graph.forEach((graph, i) => {
+                api.addPanel({
+                    id: `Model_${graph.idx}`,
+                    component: `regression`,
+                    position: {
+                        direction: 'below'
+                    },
+                    params: {
+                        v: { template: true, ...graph },
+                        i: i + prevLen,
+
+                    }
+
+                })
+            })
+
         });
 
         window.ipcRenderer.on('openProject', (event, m) => {
             let conf = m.test ? true : window.confirm("Opening a new project will cause any unsaved data in the current window to be lost. Continue?")
             if (conf) {
+                let prevLen = dataSources.length
                 setDataSources(m.data)
+                m.data.forEach((dataSource, i) => {
+                    api.addPanel({
+                        id: `Data_${dataSource.idx}`,
+                        component: `data`,
+                        position: {
+                            direction: 'below'
+                        },
+                        params: {
+                            m: dataSource,
+                            i: i + prevLen,
 
-                setRegression(m.graph.map(graph => {return ({template: true, ...graph})}))
+                        }
+
+                    })
+                })
+
+
+
+                prevLen = regression.length
+
+                setRegression(m.graph.map(graph => { return ({ template: true, ...graph }) }))
+
+                m.graph.forEach((graph, i) => {
+                    api.addPanel({
+                        id: `Model_${graph.idx}`,
+                        component: `regression`,
+                        position: {
+                            direction: 'below'
+                        },
+                        params: {
+                            v: { template: true, ...graph },
+                            i: i + prevLen,
+
+                        }
+
+                    })
+                })
             }
 
         });
 
         window.ipcRenderer.on('Regression', (event, m) => {
+            let prevLen = regression.length
             setRegression((regression) => {
                 return [
                     ...regression,
@@ -316,9 +407,29 @@ function App() {
                     }
                 ]
             })
+            api.addPanel({
+                id: `Model_${m}`,
+                component: `regression`,
+                position: {
+                    direction: 'below'
+                },
+                params: {
+                    v: {
+                        idx: m,
+                        type: 'regression',
+                        states: graphStates,
+                        template: false
+                    },
+                    i: prevLen,
+
+                }
+
+            })
+
         })
 
         window.ipcRenderer.on('Network Graph', (event, m) => {
+            let prevLen = regression.length
             setRegression((regression) => {
                 return [
                     ...regression,
@@ -329,6 +440,25 @@ function App() {
                         template: false
                     }
                 ]
+            })
+
+            api.addPanel({
+                id: `Model_${m}`,
+                component: `regression`,
+                position: {
+                    direction: 'below'
+                },
+                params: {
+                    v: {
+                        idx: m,
+                        type: 'network graph',
+                        states: graphStates,
+                        template: false
+                    },
+                    i: prevLen,
+
+                }
+
             })
         })
 
@@ -359,39 +489,80 @@ function App() {
         setTemplate({ graph: new Array(regression.length), data: new Array(dataSources.length) })
     }, [regression])
 
-    let dict = {}
-    regression.forEach((v, i) => {
-        dict[i] = <Button key={v.idx} disableRipple
-            sx={{
-                flexDirection: 'column',
-                width: '100%',
-                bgcolor: selectedGraphIndexes.includes(i) ? '#eceff1' : '',
-                border: selectedGraphIndexes.includes(i) ? '1px solid' : '',
-                borderColour: '#0d47a1',
-                "&.MuiButtonBase-root:hover": {
-                    bgcolor: selectedGraphIndexes.includes(i) ? '#eceff1' : ''
-                }
-            }}
-            onMouseMove={
-                (ev) => {
-                    if (saveClicked && mouseDown && selectedGraphIndexes.indexOf(i) == -1) {
-                        let copy = [...selectedGraphIndexes]
-                        copy.push(i)
-                        setSelectedGraphIndexes(copy)
+    let dict = {
+        "regression": (props) => {
+            let { v, i } = props.params
+            return (
+                <Button key={v.idx} disableRipple
+                    sx={{
+                        flexDirection: 'column',
+                        width: '100%',
+                        bgcolor: selectedGraphIndexes.includes(i) ? '#eceff1' : '',
+                        border: selectedGraphIndexes.includes(i) ? '1px solid' : '',
+                        borderColour: '#0d47a1',
+                        "&.MuiButtonBase-root:hover": {
+                            bgcolor: selectedGraphIndexes.includes(i) ? '#eceff1' : ''
+                        }
+                    }}
+                    onMouseMove={
+                        (ev) => {
+                            if (saveClicked && mouseDown && selectedGraphIndexes.indexOf(i) == -1) {
+                                let copy = [...selectedGraphIndexes]
+                                copy.push(i)
+                                setSelectedGraphIndexes(copy)
+                            }
+                        }
                     }
-                }
-            }
-            onClick={(ev) => { ev.stopPropagation(); if (selectedGraphIndexes.length + selectedDataIndexes.length == 0 || ev.crtlKey || ev.metaKey || (selectedGraphIndexes.length + selectedDataIndexes.length == 1 && selectedGraphIndexes.includes(i))) { updateSelectedIndexes(i, 'graph') } else { setSelectedDataIndexes([]); setSelectedGraphIndexes([]) } }}
-        // onMouseOut={(ev) => {
-        //     if (mouseDown) {
-        //         updateSelectedIndexes(i, 'graph')
+                    onClick={(ev) => { ev.stopPropagation(); if (selectedGraphIndexes.length + selectedDataIndexes.length == 0 || ev.crtlKey || ev.metaKey || (selectedGraphIndexes.length + selectedDataIndexes.length == 1 && selectedGraphIndexes.includes(i))) { updateSelectedIndexes(i, 'graph') } else { setSelectedDataIndexes([]); setSelectedGraphIndexes([]) } }}
+                // onMouseOut={(ev) => {
+                //     if (mouseDown) {
+                //         updateSelectedIndexes(i, 'graph')
 
-        //     }
-        // }}
-        >
-           <Graph idx={i} template={v.template} projectSaveClicked={projectSaveClicked} removeIdxFromGraphs={removeIdxFromGraphs} states={v.states} selectedIndexes={selectedGraphIndexes} addToTemplate={addToTemplate} className="graph" type={v.type}/>
-        </Button >
-    })
+                //     }
+                // }}
+                >
+                    <Graph i={i} template={v.template} projectSaveClicked={projectSaveClicked} removeIdxFromGraphs={removeIdxFromGraphs} states={v.states} selectedIndexes={selectedGraphIndexes} addToTemplate={addToTemplate} className="graph" type={v.type} idx={v.idx} />
+                </Button >
+            )
+        },
+        "data": (props) => {
+            let { m, i } = props.params
+            return (
+                <Button key={m.idx} disableRipple onClick={(ev) => { ev.stopPropagation(); if (selectedDataIndexes.length + selectedGraphIndexes.length == 0 || ev.crtlKey || ev.metaKey || (selectedDataIndexes.length + selectedGraphIndexes.length == 1 && selectedDataIndexes.includes(i))) { updateSelectedIndexes(i, 'data') } else { setSelectedDataIndexes([]); setSelectedGraphIndexes([]) } }}
+                    sx={{
+                        flexDirection: 'column',
+                        width: '100%',
+                        bgcolor: selectedDataIndexes.includes(i) ? '#eceff1' : '',
+                        border: selectedDataIndexes.includes(i) ? '1px solid' : '',
+                        borderColour: '#0d47a1',
+                        "&.MuiButtonBase-root:hover": {
+                            bgcolor: selectedDataIndexes.includes(i) ? '#eceff1' : ''
+                        }
+                    }}
+                    onMouseMove={
+                        (ev) => {
+                            if (saveClicked && mouseDown && selectedDataIndexes.indexOf(i) == -1) {
+                                let copy = [...selectedDataIndexes]
+                                copy.push(i)
+                                setSelectedDataIndexes(copy)
+                            }
+                        }
+                    }
+                >
+                    {console.log("here")}
+                    <Sheet projectSaveClicked={projectSaveClicked} data={m.data} exportClicked={exportt} setExportClicked={setExport} index={i} selectedIndexes={selectedDataIndexes} addToTemplate={addToTemplate} key={m.idx} removeIdxFromData={removeIdxFromData} className="sheet" />
+                </Button>
+            )
+        }
+    }
+
+    const onReady = (ev) => {
+        setApi(ev.api)
+    }
+
+    const CustomHeader = (props) => {
+        return <DockviewDefaultTab hideClose={true} {...props} />;
+    };
 
     return (
         <div onMouseMove={updateRect} onMouseDown={startRect} onMouseUp={finishRect} onClick={(ev) => { if (!(ev.crtlKey || ev.metaKey)) { setSelectedGraphIndexes([]); setSelectedDataIndexes([]) } }}>
@@ -417,36 +588,15 @@ function App() {
                 <BrowserRouter>
                     <Routes>
                         <Route path='/' element={
-                            <Paper ref={pdfRef} elevation={3} sx={{ width: 4 / 5, m: 'auto', mt: '3rem', height: 'auto', padding: '1rem', minHeight: 1000 }}>
-                                {dataSources.map((m, i) => {
-                                    return (
-                                        <Button key={m.idx} disableRipple onClick={(ev) => { ev.stopPropagation(); if (selectedDataIndexes.length + selectedGraphIndexes.length == 0 || ev.crtlKey || ev.metaKey || (selectedDataIndexes.length + selectedGraphIndexes.length == 1 && selectedDataIndexes.includes(i))) { updateSelectedIndexes(i, 'data') } else { setSelectedDataIndexes([]); setSelectedGraphIndexes([]) } }}
-                                            sx={{
-                                                flexDirection: 'column',
-                                                width: '100%',
-                                                bgcolor: selectedDataIndexes.includes(i) ? '#eceff1' : '',
-                                                border: selectedDataIndexes.includes(i) ? '1px solid' : '',
-                                                borderColour: '#0d47a1',
-                                                "&.MuiButtonBase-root:hover": {
-                                                    bgcolor: selectedDataIndexes.includes(i) ? '#eceff1' : ''
-                                                }
-                                            }}
-                                            onMouseMove={
-                                                (ev) => {
-                                                    if (saveClicked && mouseDown && selectedDataIndexes.indexOf(i) == -1) {
-                                                        let copy = [...selectedDataIndexes]
-                                                        copy.push(i)
-                                                        setSelectedDataIndexes(copy)
-                                                    }
-                                                }
-                                            }
-                                        >
-                                            <Sheet projectSaveClicked={projectSaveClicked} data={m.data} exportClicked={exportt} setExportClicked={setExport} index={i} selectedIndexes={selectedDataIndexes} addToTemplate={addToTemplate} key={m.idx} removeIdxFromData={removeIdxFromData} className="sheet"/>
-                                        </Button>
-                                    )
-                                })
-                                }
-                                {Object.values(dict)}
+                            <Paper ref={pdfRef} elevation={3} sx={{ width: 4 / 5, m: 'auto', mt: '3rem', mb: '3rem', height: 'auto', padding: '1rem', minHeight: 1000 }}>
+                                <div style={{ height: 1000 }}>
+                                    <DockviewReact
+                                        components={dict}
+                                        onReady={onReady}
+                                        className={'dockview-theme-light'}
+                                        defaultTabComponent={CustomHeader}
+                                    />
+                                </div>
                             </Paper>} />
 
 
@@ -472,7 +622,7 @@ function App() {
                             zIndex: 10,
                             bgcolor: 'lightgray'
                         }}
-                        onClick={(ev) => { ev.stopPropagation()}}
+                        onClick={(ev) => { ev.stopPropagation() }}
                     >
                         <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
                             <Grid item xs={8} />

@@ -2,8 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import Grid from '@mui/material/Grid/Grid'
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
-import { makeStyles } from "@mui/styles";
-import { AgGridReact, grid } from 'ag-grid-react'
+import { AgGridReact} from 'ag-grid-react'
 import { RangeSelectionModule } from "ag-grid-enterprise";
 import { ModuleRegistry } from "ag-grid-community/";
 import { ClientSideRowModelModule } from "ag-grid-community";
@@ -12,23 +11,6 @@ import { GridChartsModule } from "ag-grid-enterprise/chartsModule";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 // ModuleRegistry.registerModules([ClientSideRowModelModule, GridChartsModule]);
-
-export const defaultHeight = 500;
-const minHeight = 250;
-const maxHeight = 1000;
-
-const useStyles = makeStyles(theme => ({
-    dragger: {
-        height: "5px",
-        cursor: "ns-resize",
-        borderTop: "1px solid #ddd",
-        top: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 100,
-        backgroundColor: "#f4f7f9"
-    }
-}));
 
 const Renderer = (props) => {
     const [child, setChild] = useState(null)
@@ -62,13 +44,38 @@ const Renderer = (props) => {
 
 export default function Sheet({ data, exportClicked, setExportClicked, index, selectedIndexes, addToTemplate, removeIdxFromData, projectSaveClicked }) {
     const [range, setRange] = useState()
-    const [testVis, setTestVis] = useState(false)
-    const classes = useStyles();
-    const [height, setHeight] = React.useState(defaultHeight);
+    const [height, setHeight] = useState(500)
 
 
     const gridRef = useRef()
-    const draggerRef = useRef()
+
+    const setDynamicDomLayout = (api) => {
+        // get the rendered rows
+        const renderedRowCount = api.getDisplayedRowCount();
+        const maxHeight = 500;
+
+        const size = api.getSizesForCurrentTheme();
+
+        const calculatedGridHeight = ((renderedRowCount * size.rowHeight)
+            + size.headerHeight);
+
+        if (calculatedGridHeight > maxHeight
+            && renderedRowCount > 0
+            && maxHeight !== 0) {
+            api.setDomLayout('normal');
+            setHeight(500)
+        }
+        else {
+            api.setDomLayout('autoHeight');
+            api.resetRowHeights();
+            setHeight(null)
+        }
+    }
+
+    const onGridReady = useCallback((params) => {
+        setDynamicDomLayout(params.api)
+    }, []);
+
 
     function handleClose(ev) {
         let conf = window.confirm('Delete data source?')
@@ -88,27 +95,25 @@ export default function Sheet({ data, exportClicked, setExportClicked, index, se
     useEffect(() => {
         const exportt = async () => {
             if (exportClicked == 'xlsx') {
-                gridRef.current.api.exportDataAsExcel();
+                gridRef.current?.api?.exportDataAsExcel();
                 setExportClicked('')
             }
             if (exportClicked == 'csv') {
-                gridRef.current.api.exportDataAsCsv();
+                gridRef.current?.api?.exportDataAsCsv();
                 setExportClicked('')
             }
             if (exportClicked == 'test_xlsx') {
-                let blob = gridRef.current.api.getDataAsExcel();
+                let blob = gridRef.current?.api?.getDataAsExcel();
                 const string = await new Response(blob).arrayBuffer();
                 window.ipcRenderer.send('test_export', { data: string, save: 'xlsx' })
                 setExportClicked('')
-                setTestVis(true)
 
             }
             if (exportClicked == 'test_csv') {
-                let blob = gridRef.current.api.getDataAsCsv();
+                let blob = gridRef.current?.api?.getDataAsCsv();
                 const string = await new Response(blob).arrayBuffer();
                 window.ipcRenderer.send('test_export', { data: string, save: 'csv' })
                 setExportClicked('')
-                setTestVis(true)
 
             }
         }
@@ -116,13 +121,13 @@ export default function Sheet({ data, exportClicked, setExportClicked, index, se
     }, [exportClicked])
 
     function rangeSelectionChanged(event) {
-        setRange(event.api.getCellRanges())
+        setRange(event.api?.getCellRanges())
 
 
     }
 
     const onRowDrag = (params) => {
-        var api = gridRef.current.api;
+        var api = gridRef.current?.api;
         var e = params.dragEvent
         var data = []
         var columns = new Set()
@@ -163,28 +168,12 @@ export default function Sheet({ data, exportClicked, setExportClicked, index, se
         }
         return res
     }
-
-    const handleMouseDown = e => {
-        document.addEventListener("mouseup", handleMouseUp, true);
-        document.addEventListener("mousemove", handleMouseMove, true);
-    };
-
-    const handleMouseUp = () => {
-        document.removeEventListener("mouseup", handleMouseUp, true);
-        document.removeEventListener("mousemove", handleMouseMove, true);
-    };
-
-    const handleMouseMove = useCallback(e => {
-        let newHeight = e.clientY - draggerRef.current.offsetTop
-        if (newHeight > minHeight && newHeight < maxHeight) {
-            setHeight(newHeight);
-        }
-    }, []);
     const columns = getColumns(data)
 
     return (
         <>
-            <div className="ag-theme-alpine" style={{ height: height, marginBottom: '2rem', marginTop: '2rem', width: '100%' }} ref={draggerRef}>
+            {console.log(height)}
+            <div className="ag-theme-alpine" style={{ height: height, marginBottom: '2rem', marginTop: '2rem', width: '100%' }}>
                 <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
                     <Grid item xs={8} />
                     <Grid item xs={1}>
@@ -193,9 +182,7 @@ export default function Sheet({ data, exportClicked, setExportClicked, index, se
                         </IconButton>
                     </Grid>
                 </Grid>
-                <AgGridReact ref={gridRef} enableCharts={true} rowDragManaged={true} suppressRowClickSelection={true} rowData={data} columnDefs={columns} enableRangeSelection={true} onRangeSelectionChanged={rangeSelectionChanged} keepLastSelected={false}></AgGridReact>
-                <div onMouseDown={e => handleMouseDown(e)} className={classes.dragger}></div>
-
+                <AgGridReact ref={gridRef} onGridReady={onGridReady} enableCharts={true} rowDragManaged={true} suppressRowClickSelection={true} rowData={data} columnDefs={columns} enableRangeSelection={true} onRangeSelectionChanged={rangeSelectionChanged} keepLastSelected={false}></AgGridReact>
             </div>
 
         </>

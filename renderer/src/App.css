@@ -36,3 +36,7 @@
     transform: rotate(360deg);
   }
 }
+
+.dockview-theme-light {
+    --dv-background-color: white !important;
+}

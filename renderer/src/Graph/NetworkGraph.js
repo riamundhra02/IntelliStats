@@ -252,7 +252,6 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
                 let index = copy.findIndex((obj) => obj.selector == (l ? `${type}[${type == "node" ? attribute : "label"} = "${l}"]` : `${type}[^${attribute}]`))
-                console.log(copy[index].selector == (l ? `${type}[${type == "node" ? attribute : "label"} = "${l}"]` : `${type}[^${attribute}]`))
                 if (index >= 0) {
                     let style = { ...copy[index]["style"] }
                     let selector = copy[index]["selector"]
@@ -275,7 +274,6 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
                             }
                     })
                 }
-                console.log(copy)
                 return copy
             })
         }
