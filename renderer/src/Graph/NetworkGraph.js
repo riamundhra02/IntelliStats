@@ -1230,10 +1230,10 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
                                         {Object.keys(cy?.nodes()[0]?.json().data ? cy?.nodes()[0]?.json().data : {}).map((key, i) => {
                                             if (cy?.nodes()[0]?.json().data[key] != null) {
                                                 if (text == "Set Colour From" || text == "Set Label From") {
-                                                    return <MenuItem value={key}>{key == 'id' ? "Input Label" : key.split("_").join(" ")}</MenuItem>
+                                                    return key == 'label' ? <></> : <MenuItem value={key}>{key == 'id' ? "Input Label" : key.split("_").join(" ")}</MenuItem>
                                                 } else {
                                                     if (isNumerical[key]) {
-                                                        return <MenuItem value={key}>{key == 'id' ? "Input Label" : key.split("_").join(" ")}</MenuItem>
+                                                        return key == 'label' ? <></> : <MenuItem value={key}>{key == 'id' ? "Input Label" : key.split("_").join(" ")}</MenuItem>
                                                     }
                                                 }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import InputLabel from '@mui/material/InputLabel';
 import { registerTransform } from 'echarts/core';
 import { transform, regression } from 'echarts-stat';
@@ -20,10 +20,363 @@ import Fade from '@mui/material/Fade';
 import NetworkGraph from './NetworkGraph'
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
+import Modal from '@mui/material/Modal'
+import Box from '@mui/material/Box'
 import CustomTabPanel from './CustomTabPanel'
+import { AgGridReact } from 'ag-grid-react'
+// import Editor, { DiffEditor, useMonaco, loader } from '@monaco-editor/react';
+import { registerSchema, validate } from "@hyperjump/json-schema/draft-2020-12";
+import cssSchema from './cssschema.json'
+import { JsonEditor as Editor } from 'jsoneditor-react';
+import Ajv from 'ajv';
+
+import "ag-grid-community/styles/ag-grid.css";
+import "ag-grid-community/styles/ag-theme-alpine.css";
+
+const CustomHeader = ({ displayName, isInput, api, column }) => {
+    const [name, setName] = useState(displayName)
+
+    const onChange = (ev) => {
+        setName(ev.target.value)
+        let colDefs = api.getColumnDefs();
+        let id = column.getColId()
+        let editColDef;
+        colDefs.forEach(colDef => {
+            if (colDef.colId == id) {
+                editColDef = colDef;
+            }
+        })
+        editColDef.field = ev.target.value;
+        api.setColumnDefs(colDefs);
+    }
+    return (
+        <div class="ag-cell-label-container" role="presentation" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+            {isInput ? <TextField className="ag-header-cell-text" variant="filled" size="small" label="Attribute Name" margin='none' sx={{ padding: 0 }} onChange={onChange} value={name} /> : <span class="ag-header-cell-text" style={{ fontSize: 16 }}>{name}</span>}
+        </div>
+
+    )
+}
 
 
-export default function Graph({ containerApi, template, type, i, idx, removeIdxFromGraphs, states, selectedIndexes, addToTemplate, projectSaveClicked }) {
+const NodesModal = ({ nodesOpen, setNodesOpen, node, setNode }) => {
+    const gridRef = useRef()
+    const [columnDefs, setColumnDefs] = useState([
+        {
+            field: 'label',
+            editable: true,
+            resizable: true,
+            headerComponentParams: { isInput: false },
+        },
+        {
+            headerName: '',
+            checkboxSelection: true,
+            headerCheckboxSelection: true,
+            pinned: 'left',
+            width: 50,
+            headerComponentParams: { isInput: false }
+
+        }])
+    const style = {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: 500,
+        bgcolor: 'background.paper',
+        border: '2px solid #000',
+        boxShadow: 24,
+        p: 4,
+    };
+
+    useEffect(() => {
+        if (columnDefs) {
+            setColumnDefs(pColDefs => {
+                let copy = [...pColDefs]
+                Object.keys(node?.length > 0 ? node[0] : {}).forEach((key, i) => {
+                    let add = true
+                    pColDefs.forEach(col => {
+                        if (col.field == key) {
+                            add = false
+                        }
+                    })
+                    if (add && key != 'id') {
+                        copy.push({
+                            field: key,
+                            editable: true,
+                            resizable: true,
+                            headerComponentParams: { isInput: false },
+                        })
+                        console.log(copy)
+                    }
+
+                })
+                console.log(copy)
+                return copy
+            })
+        }
+
+    }, [node])
+
+    const autoSizeStrategy = {
+        type: 'fitGridWidth',
+
+    };
+
+    const components = useMemo(() => {
+        return {
+            agColumnHeader: CustomHeader,
+        };
+    }, []);
+
+    const getRowData = () => {
+        const rowData = [];
+        gridRef?.current?.api?.forEachNode(function (node) {
+            console.log(node.data)
+            rowData.push(node.data);
+        });
+        return rowData
+    };
+
+    const handleClose = (ev) => {
+        let tableData = getRowData()
+        tableData = tableData.map(data => {
+            console.log(data)
+            data.id = data.label
+            return data
+        })
+        console.log([...tableData])
+        setNode(pdata => {
+            let copy = { ...pdata }
+            copy.data = tableData
+            return copy
+        })
+        setNodesOpen(false)
+    }
+
+    return (
+        <Modal
+            open={nodesOpen}
+            onClose={(ev) => setNodesOpen(false)}
+        >
+            <Box sx={style}>
+                <Typography variant="h6" component="h2"> Add Nodes</Typography>
+                <Button onClick={() => gridRef?.current.api.applyTransaction({ add: [{}] })}>
+                    Add row
+                </Button>
+                <Button onClick={() => {
+                    const rows = gridRef?.current.api.getSelectedRows()
+                    gridRef?.current.api.applyTransaction({ remove: rows })
+                }}>
+                    Delete selected rows
+                </Button>
+                <Button onClick={() => {
+                    let colDefs = gridRef?.current?.api?.getColumnDefs()
+                    colDefs.push({
+                        field: "",
+                        editable: true,
+                        resizable: true,
+                        headerComponentParams: { isInput: true }
+                    })
+                    gridRef?.current?.api?.setColumnDefs(colDefs);
+                }}>
+                    Add Attribute
+                </Button>
+                <div className="ag-theme-alpine" style={{ height: 500 }}>
+                    <AgGridReact style={{ width: '100%' }} ref={gridRef}
+                        rowData={node ? node.map((row, i) => {
+                            let copy = { ...row }
+                            copy.label = row.id
+                            return copy
+                        }) : []}
+                        columnDefs={columnDefs} rowSelection='multiple'
+                        singleClickEdit
+                        suppressRowClickSelection
+                        autoSizeStrategy={autoSizeStrategy}
+                        components={components}
+                        headerHeight={65} />
+                </div>
+                <Button color="success" variant="contained" sx={{ m: 2 }} onClick={handleClose}>Continue?</Button>
+            </Box>
+        </Modal>
+    )
+}
+
+const EdgesModal = ({ edgesOpen, setEdgesOpen, source, target, label, setLabel, setSource, setTarget }) => {
+    const gridRef = useRef()
+    const [columnDefs, setColumnDefs] = useState([
+        {
+            field: 'source',
+            editable: true,
+            resizable: true,
+            headerComponentParams: { isInput: false },
+            cellDataType: 'text'
+        },
+        {
+            field: 'label',
+            editable: true,
+            resizable: true,
+            headerComponentParams: { isInput: false },
+            cellDataType: 'text'
+        },
+        {
+            field: 'target',
+            editable: true,
+            resizable: true,
+            headerComponentParams: { isInput: false },
+            cellDataType: 'text'
+        },
+        {
+            headerName: '',
+            checkboxSelection: true,
+            headerCheckboxSelection: true,
+            pinned: 'left',
+            width: 50,
+            headerComponentParams: { isInput: false },
+
+
+        }])
+    const style = {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: 500,
+        bgcolor: 'background.paper',
+        border: '2px solid #000',
+        boxShadow: 24,
+        p: 4,
+    };
+
+    useEffect(() => {
+        if (columnDefs) {
+            setColumnDefs(pColDefs => {
+                let copy = [...pColDefs]
+                Object.keys(label?.length > 0 ? label[0] : {}).forEach((key, i) => {
+                    let add = true
+                    pColDefs.forEach(col => {
+                        if (col.field !== key) {
+                            add = false
+                        }
+                    })
+                    if (add) {
+                        copy.push({
+                            field: key,
+                            editable: true,
+                            resizable: true,
+                            headerComponentParams: { isInput: false },
+                        })
+                    }
+
+                })
+                return copy
+            })
+        }
+
+    }, [label])
+
+    const autoSizeStrategy = {
+        type: 'fitGridWidth',
+
+    };
+
+    const components = useMemo(() => {
+        return {
+            agColumnHeader: CustomHeader,
+        };
+    }, []);
+
+    const getRowData = () => {
+        const rowData = [];
+        gridRef?.current?.api?.forEachNode(function (node) {
+            rowData.push(node.data);
+        });
+        return rowData
+    };
+
+    const handleClose = (ev) => {
+        let tableData = getRowData()
+        tableData = tableData.map(data => {
+            console.log(data)
+            data.id = data.label
+            return data
+        })
+        setLabel(plabel => {
+            console.log(plabel)
+            let copy = tableData.map(data => data.label)
+            console.log(plabel, copy)
+            return { data: copy, dataset: plabel.dataset }
+
+        })
+
+        setSource(psource => {
+            let copy = tableData.map(data => { return { id: data.source } })
+            console.log(psource, copy)
+            return { data: copy, dataset: psource.dataset }
+
+        })
+
+        setTarget(ptarget => {
+            let copy = tableData.map(data => { return { id: data.target } })
+            return { data: copy, dataset: ptarget.dataset }
+
+        })
+
+        setEdgesOpen(false)
+    }
+
+    return (
+        <Modal
+            open={edgesOpen}
+            onClose={(ev) => setEdgesOpen(false)}
+        >
+            <Box sx={style}>
+                <Typography variant="h6" component="h2"> Add Nodes</Typography>
+                <Button onClick={() => gridRef?.current.api.applyTransaction({ add: [{}] })}>
+                    Add row
+                </Button>
+                <Button onClick={() => {
+                    const rows = gridRef?.current.api.getSelectedRows()
+                    gridRef?.current.api.applyTransaction({ remove: rows })
+                }}>
+                    Delete selected rows
+                </Button>
+                <Button onClick={() => {
+                    let colDefs = gridRef?.current?.api?.getColumnDefs()
+                    colDefs.push({
+                        field: "",
+                        editable: true,
+                        resizable: true,
+                        headerComponentParams: { isInput: true }
+                    })
+                    gridRef?.current?.api?.setColumnDefs(colDefs);
+                }}>
+                    Add LaTeX
+                </Button>
+                <div className="ag-theme-alpine" style={{ height: 500 }}>
+                    <AgGridReact style={{ width: '100%' }} ref={gridRef}
+                        rowData={label ? label.map((edge, i) => {
+                            let copy = {}
+                            copy.label = edge
+                            copy.source = source[i]?.id
+                            copy.target = target[i]?.id
+                            // console.log(copy.source !== undefined && copy.target !== undefined)
+                            return (copy.source !== undefined && copy.target !== undefined) ? copy : null
+                        }).filter((v, i) => v) : []}
+                        columnDefs={columnDefs} rowSelection='multiple'
+                        singleClickEdit
+                        suppressRowClickSelection
+                        autoSizeStrategy={autoSizeStrategy}
+                        components={components}
+                        headerHeight={65} />
+                </div>
+                <Button color="success" variant="contained" sx={{ m: 2 }} onClick={handleClose}>Continue?</Button>
+            </Box>
+        </Modal>
+    )
+}
+
+
+export default function Graph({ setTotalHeight, template, type, i, idx, removeIdxFromGraphs, states, selectedIndexes, addToTemplate, projectSaveClicked }) {
     const [model, setModel] = useState(states.model);
     const [method, setMethod] = useState(states.method);
     const [xdata, setXData] = useState(states.xdata)
@@ -42,6 +395,116 @@ export default function Graph({ containerApi, template, type, i, idx, removeIdxF
     const [zAxis, setZAxis] = useState(states.zAxis)
     const [directed, setDirected] = useState(states.directed)
     const [stylesheet, setStylesheet] = useState([])
+    const divRef = useRef()
+    const [nodesOpen, setNodesOpen] = useState(false)
+    const [edgesOpen, setEdgesOpen] = useState(false)
+
+    const schema = {
+        // $schema: "https://json-schema.org/draft/2020-12/schema",
+        $id: 'schema',
+        title: 'schema',
+        type: 'object',
+        properties: {
+            model: { enum: ["linear", 'multiple', "polynomial", 'logarithmic'] },
+            method: { enum: ['ols'] },
+            xdata: {
+                type: "array",
+                items: {
+                    type: "object",
+                    properties: {
+                        data: { type: "array" },
+                        dataset: {
+                            type: "integer",
+                            minimum: -1
+                        }
+                    }
+                }
+            },
+            ydata: {
+                type: "object",
+                properties: {
+                    data: { type: "array" },
+                    dataset: {
+                        type: "integer",
+                        minimum: -1
+                    }
+                }
+            },
+            source: {
+                type: "object",
+                properties: {
+                    data: { type: "array" },
+                    dataset: {
+                        type: "integer",
+                        minimum: -1
+                    }
+                }
+            },
+            target: {
+                type: "object",
+                properties: {
+                    data: { type: "array" },
+                    dataset: {
+                        type: "integer",
+                        minimum: -1
+                    }
+                }
+            },
+            label: {
+                type: "object",
+                properties: {
+                    data: { type: "array" },
+                    dataset: {
+                        type: "integer",
+                        minimum: -1
+                    }
+                }
+            },
+            order: { type: "integer" },
+            numberVar: { type: "integer" },
+            regressionExpr: { type: "string" },
+            checked: { type: "boolean" },
+            tabValue: {
+                type: "integer",
+                minimum: 0,
+                maximum: 1
+            },
+            xAxis: {
+                type: "integer",
+                minimum: 0
+            },
+            zAxis: {
+                type: "integer",
+                minimum: 0
+            },
+            directed: { type: "boolean" },
+            stylesheet: {
+                type: "array",
+                items: {
+                    type: "object",
+                    properties: {
+                        "selector": { type: "string" },
+                        "style": {
+                            type: "object"
+                        },
+                    },
+                    "required": ["selector", "style"]
+                }
+
+            }
+        }
+    }
+
+    useEffect(() => {
+        setTotalHeight(pheight => {
+            return pheight + divRef.current.offsetHeight + 35
+        })
+        return () => {
+            setTotalHeight(pheight => {
+                return pheight - divRef.current.offsetHeight - 35
+            })
+        }
+    }, [divRef])
 
     useEffect(() => {
         if (template) {
@@ -137,13 +600,11 @@ export default function Graph({ containerApi, template, type, i, idx, removeIdxF
             })
         } else {
             let i = Math.min(source.data.length, target.data.length, label.data.length)
-            let newSource = source.data.slice(0, i)
-            let newTarget = target.data.slice(0, i)
             let newLabel = label.data.slice(0, i)
-            let nodes = new Set([...newSource, ...newTarget])
+            let nodes = new Set([...source.data, ...target.data])
             nodes = Array.from(nodes.values())
             nodes = nodes.map((v, i) => { return { data: v } })
-            newLabel = newLabel.map((v, i) => { return { data: { source: newSource[i].id, target: newTarget[i].id, label: `${v}` } } })
+            newLabel = newLabel.map((v, i) => { return { data: { source: source.data[i].id, target: target.data[i].id, label: `${v}` } } })
             dataAux = [...nodes, ...newLabel]
         }
         setData(dataAux)
@@ -163,6 +624,16 @@ export default function Graph({ containerApi, template, type, i, idx, removeIdxF
 
     function allowDrop(ev) {
         ev.preventDefault();
+    }
+
+    const handleSourceNodes = (ev) => {
+        setNodesOpen(true)
+
+    }
+
+    const handleLabels = (ev) => {
+        setEdgesOpen(true)
+
     }
 
     function dropX(ev, i) {
@@ -200,7 +671,7 @@ export default function Graph({ containerApi, template, type, i, idx, removeIdxF
             alert('Please select source data!')
             return
         }
-        setSource({data: data.data.map((v,i) => {return ({id: v})}), dataset: data.dataset})
+        setSource({ data: data.data.map((v, i) => { return ({ id: v }) }), dataset: data.dataset })
 
     }
 
@@ -212,7 +683,7 @@ export default function Graph({ containerApi, template, type, i, idx, removeIdxF
             return
         }
 
-        setTarget({data: data.data.map((v,i) => {return ({id: v})}), dataset: data.dataset})
+        setTarget({ data: data.data.map((v, i) => { return ({ id: v }) }), dataset: data.dataset })
 
     }
 
@@ -285,7 +756,7 @@ export default function Graph({ containerApi, template, type, i, idx, removeIdxF
         }
     }, [model, numberVar, order, data, checked])
 
-    const component = type == 'regression' ? <>
+    const guiComponent = type == 'regression' ? <>
         <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center' sx={{ width: '100%' }}>
             <Grid item xs={1}>
                 <Button onDrop={dropY} onDragOver={allowDrop}>Insert Y Data</Button>
@@ -319,11 +790,11 @@ export default function Graph({ containerApi, template, type, i, idx, removeIdxF
     </>
         :
         <>
-            <NetworkGraph elements={data} directed={directed} stylesheet={stylesheet} setStylesheet={setStylesheet} setSource={setSource} setTarget={setTarget}/>
+            <NetworkGraph elements={data} directed={directed} stylesheet={stylesheet} setStylesheet={setStylesheet} setSource={setSource} setTarget={setTarget} />
             <Grid container alignItems="center" justifyContent="center" alignContent='center' direction='row' columns={4}>
-                <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropSource(ev) }} onDragOver={allowDrop}>Source Nodes</Button></Grid>
-                <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropTarget(ev) }} onDragOver={allowDrop}>Target Nodes</Button></Grid>
-                <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropLabel(ev) }} onDragOver={allowDrop}>Edge Labels</Button></Grid>
+                <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropSource(ev) }} onDragOver={allowDrop} onClick={handleSourceNodes}>Source Nodes</Button></Grid>
+                <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropTarget(ev) }} onDragOver={allowDrop} onClick={handleSourceNodes}>Target Nodes</Button></Grid>
+                <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropLabel(ev) }} onDragOver={allowDrop} onClick={handleLabels}>Edge Labels</Button></Grid>
                 <Grid item xs={1} alignItems='center' alignContent='center'>
                     <Typography variant='overline'>
                         <Checkbox checked={directed} onChange={(ev) => {
@@ -357,10 +828,25 @@ export default function Graph({ containerApi, template, type, i, idx, removeIdxF
             </Grid>
         </>
 
+    const handleCliChange = (value, event) => {
+        console.log(value)
+    }
+
+    const ajv = new Ajv({ allErrors: true, verbose: true });
+
+    const cliComponent = <Editor
+        value={states}
+        onChange={handleCliChange}
+        ajv={ajv}
+        schema={schema}
+    />;
+
 
     return (
         <>
-            <div onDoubleClick={(ev) => setBannerOpen(true)} style={{ width: '100%', position: 'relative' }} className='graph'>
+            <NodesModal nodesOpen={nodesOpen} setNodesOpen={setNodesOpen} type="source" node={[...source.data, ...target.data].filter((v, i, a) => a.findIndex(v2 => (v2.id == v.id)) === i)} setNode={setSource} />
+            <EdgesModal edgesOpen={edgesOpen} setEdgesOpen={setEdgesOpen} label={label.data} source={source.data} target={target.data} setLabel={setLabel} setSource={setSource} setTarget={setTarget} />
+            <div ref={divRef} onDoubleClick={(ev) => setBannerOpen(true)} style={{ width: '100%', position: 'relative' }} className='graph'>
                 <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
                     <Grid item xs={8} />
                     <Grid item xs={1}>
@@ -384,7 +870,7 @@ export default function Graph({ containerApi, template, type, i, idx, removeIdxF
                     </Grid>
                 </Grid>
                     : <></>}
-                {component}
+                {cliComponent}
                 <br />
                 <br />
                 {type == 'regression' ?
@@ -457,7 +943,7 @@ export default function Graph({ containerApi, template, type, i, idx, removeIdxF
                             </Grid>
                         </Grid>
                         <Paper sx={{ height: '88%', overflow: 'scroll', borderWidth: 0 }}>
-                            {component}
+                            {guiComponent}
                         </Paper>
                     </Paper>
                 </Fade>

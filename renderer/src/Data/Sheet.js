@@ -42,7 +42,7 @@ const Renderer = (props) => {
     return <span unselectable={isInRange ? "on" : "off"}>{props.value}</span>
 }
 
-export default function Sheet({ data, exportClicked, setExportClicked, index, selectedIndexes, addToTemplate, removeIdxFromData, projectSaveClicked }) {
+export default function Sheet({ setTotalHeight, data, exportClicked, setExportClicked, i, idx, selectedIndexes, addToTemplate, removeIdxFromData, projectSaveClicked }) {
     const [range, setRange] = useState()
     const [height, setHeight] = useState(500)
 
@@ -63,12 +63,42 @@ export default function Sheet({ data, exportClicked, setExportClicked, index, se
             && renderedRowCount > 0
             && maxHeight !== 0) {
             api.setDomLayout('normal');
-            setHeight(500)
+            setHeight(560)
+            setTotalHeight(pheight => {
+                return pheight + 608
+            })
         }
         else {
             api.setDomLayout('autoHeight');
             api.resetRowHeights();
             setHeight(null)
+            setTotalHeight(pheight => {
+                return pheight + calculatedGridHeight + 108
+            })
+        }
+    }
+
+    const removeHeight = (api) => {
+        // get the rendered rows
+        const renderedRowCount = api.getDisplayedRowCount();
+        const maxHeight = 500;
+
+        const size = api.getSizesForCurrentTheme();
+
+        const calculatedGridHeight = ((renderedRowCount * size.rowHeight)
+            + size.headerHeight);
+
+        if (calculatedGridHeight > maxHeight
+            && renderedRowCount > 0
+            && maxHeight !== 0) {
+            setTotalHeight(pheight => {
+                return pheight - 608
+            })
+        }
+        else {
+            setTotalHeight(pheight => {
+                return pheight - calculatedGridHeight - 108
+            })
         }
     }
 
@@ -76,21 +106,25 @@ export default function Sheet({ data, exportClicked, setExportClicked, index, se
         setDynamicDomLayout(params.api)
     }, []);
 
+    const onGridPreDestroyed = useCallback((params) => {
+        removeHeight(params.api)
+    }, []);
+
 
     function handleClose(ev) {
         let conf = window.confirm('Delete data source?')
         if (conf) {
-            removeIdxFromData(index)
+            removeIdxFromData(i, idx)
         }
     }
 
     useEffect(() => {
-        if (selectedIndexes.includes(index) || projectSaveClicked) {
+        if (selectedIndexes.includes(i) || projectSaveClicked) {
             addToTemplate({
                 data: data
-            }, index, 'data')
+            }, i, 'data')
         }
-    }, [selectedIndexes, index, data, projectSaveClicked])
+    }, [selectedIndexes, i, data, projectSaveClicked])
 
     useEffect(() => {
         const exportt = async () => {
@@ -148,7 +182,7 @@ export default function Sheet({ data, exportClicked, setExportClicked, index, se
             });
         }
         columns = Array.from(columns)
-        var jsonData = JSON.stringify({ data: data, dataset: index });
+        var jsonData = JSON.stringify({ data: data, dataset: i });
         e.dataTransfer.setData('application/json', jsonData);
         e.dataTransfer.setData('text/plain', jsonData);
     };
@@ -172,17 +206,16 @@ export default function Sheet({ data, exportClicked, setExportClicked, index, se
 
     return (
         <>
-            {console.log(height)}
-            <div className="ag-theme-alpine" style={{ height: height, marginBottom: '2rem', marginTop: '2rem', width: '100%' }}>
-                <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
+            <div className="ag-theme-alpine" style={{ height: height, width: '100%' }}>
+                <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center' sx={{height: 60}}>
                     <Grid item xs={8} />
                     <Grid item xs={1}>
-                        <IconButton aria-label="delete" onClick={handleClose}>
+                        <IconButton aria-label="delete" onClick={handleClose} sx={{height: 50, width: 50}}>
                             <CloseIcon />
                         </IconButton>
                     </Grid>
                 </Grid>
-                <AgGridReact ref={gridRef} onGridReady={onGridReady} enableCharts={true} rowDragManaged={true} suppressRowClickSelection={true} rowData={data} columnDefs={columns} enableRangeSelection={true} onRangeSelectionChanged={rangeSelectionChanged} keepLastSelected={false}></AgGridReact>
+                <AgGridReact ref={gridRef} onGridReady={onGridReady} onGridPreDestroyed={onGridPreDestroyed} enableCharts={true} rowDragManaged={true} suppressRowClickSelection={true} rowData={data} columnDefs={columns} enableRangeSelection={true} onRangeSelectionChanged={rangeSelectionChanged} keepLastSelected={false}></AgGridReact>
             </div>
 
         </>

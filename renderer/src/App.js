@@ -37,7 +37,10 @@ function App() {
     const [projectSaveClicked, setProjectSaveClicked] = useState(false)
     const [continueClicked, setContinueClicked] = useState(false)
     const [api, setApi] = useState(null)
+    const [totalHeight, setTotalHeight] = useState(0)
     const pdfRef = useRef()
+
+    console.log(totalHeight)
 
     const options = {
         method: 'save',
@@ -144,9 +147,9 @@ function App() {
         api.removePanel(panel);
     }
 
-    function removeIdxFromData(idx) {
+    function removeIdxFromData(i, idx) {
         let clone = [...dataSources]
-        clone.splice(idx, 1)
+        clone.splice(i, 1)
         setDataSources(clone)
         const panel = api.getPanel(`Data_${idx}`);
         api.removePanel(panel);
@@ -521,7 +524,7 @@ function App() {
                 //     }
                 // }}
                 >
-                    <Graph i={i} template={v.template} projectSaveClicked={projectSaveClicked} removeIdxFromGraphs={removeIdxFromGraphs} states={v.states} selectedIndexes={selectedGraphIndexes} addToTemplate={addToTemplate} className="graph" type={v.type} idx={v.idx} />
+                    <Graph setTotalHeight = {setTotalHeight} i={i} template={v.template} projectSaveClicked={projectSaveClicked} removeIdxFromGraphs={removeIdxFromGraphs} states={v.states} selectedIndexes={selectedGraphIndexes} addToTemplate={addToTemplate} className="graph" type={v.type} idx={v.idx} />
                 </Button >
             )
         },
@@ -550,7 +553,7 @@ function App() {
                     }
                 >
                     {console.log("here")}
-                    <Sheet projectSaveClicked={projectSaveClicked} data={m.data} exportClicked={exportt} setExportClicked={setExport} index={i} selectedIndexes={selectedDataIndexes} addToTemplate={addToTemplate} key={m.idx} removeIdxFromData={removeIdxFromData} className="sheet" />
+                    <Sheet setTotalHeight = {setTotalHeight} projectSaveClicked={projectSaveClicked} data={m.data} exportClicked={exportt} setExportClicked={setExport} i={i} idx={m.idx} selectedIndexes={selectedDataIndexes} addToTemplate={addToTemplate} key={m.idx} removeIdxFromData={removeIdxFromData} className="sheet" />
                 </Button>
             )
         }
@@ -589,7 +592,7 @@ function App() {
                     <Routes>
                         <Route path='/' element={
                             <Paper ref={pdfRef} elevation={3} sx={{ width: 4 / 5, m: 'auto', mt: '3rem', mb: '3rem', height: 'auto', padding: '1rem', minHeight: 1000 }}>
-                                <div style={{ height: 1000 }}>
+                                <div style={{ height: totalHeight }}>
                                     <DockviewReact
                                         components={dict}
                                         onReady={onReady}

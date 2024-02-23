@@ -5,6 +5,8 @@
     "dependencies": {
         "@emotion/react": "^11.11.1",
         "@emotion/styled": "^11.11.0",
+        "@hyperjump/json-schema": "^1.7.2",
+        "@monaco-editor/react": "^4.6.0",
         "@mui/icons-material": "^5.14.14",
         "@mui/material": "^5.14.14",
         "@mui/styles": "^5.14.17",
@@ -16,6 +18,7 @@
         "ag-grid-community": "^30.2.0",
         "ag-grid-enterprise": "^30.2.0",
         "ag-grid-react": "^30.2.0",
+        "ajv": "^6.12.6",
         "cytoscape": "^3.28.1",
         "desmos": "^1.5.4",
         "desmos-react": "^1.2.0",
@@ -23,6 +26,8 @@
         "echarts": "^5.4.3",
         "echarts-for-react": "^3.0.2",
         "echarts-stat": "^1.2.0",
+        "jsoneditor": "^9.10.5",
+        "jsoneditor-react": "^3.1.2",
         "material-ui-color": "^1.2.0",
         "mui-color-input": "^2.0.1",
         "pca-js": "^1.0.2",
@@ -32,6 +37,7 @@
         "react-cytoscapejs": "^2.0.0",
         "react-dom": "^18.2.0",
         "react-draggable": "^4.4.6",
+        "react-monaco-editor": "^0.55.0",
         "react-plotly.js": "^2.6.0",
         "react-scripts": "5.0.1",
         "react-to-pdf": "^1.0.1",
@@ -63,6 +69,7 @@
         ]
     },
     "devDependencies": {
+        "json-loader": "^0.5.7",
         "react-router-dom": "^6.19.0"
     }
 }
