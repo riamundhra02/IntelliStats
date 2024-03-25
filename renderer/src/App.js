@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, createContext} from 'react';
 import Paper from '@mui/material/Paper/Paper'
 import './App.css';
 import Sheet from './Data/Sheet';
@@ -17,6 +17,9 @@ import {
     DockviewReact,
     DockviewDefaultTab,
 } from 'dockview';
+
+
+export const DataContext = createContext([]);
 
 function App() {
     const [dataSources, setDataSources] = useState([])
@@ -39,8 +42,6 @@ function App() {
     const [api, setApi] = useState(null)
     const [totalHeight, setTotalHeight] = useState(0)
     const pdfRef = useRef()
-
-    console.log(totalHeight)
 
     const options = {
         method: 'save',
@@ -343,6 +344,7 @@ function App() {
                     params: {
                         v: { template: true, ...graph },
                         i: i + prevLen,
+                        dataSources: dataSources
 
                     }
 
@@ -365,7 +367,7 @@ function App() {
                         },
                         params: {
                             m: dataSource,
-                            i: i + prevLen,
+                            i: i + prevLen
 
                         }
 
@@ -388,6 +390,7 @@ function App() {
                         params: {
                             v: { template: true, ...graph },
                             i: i + prevLen,
+                            dataSources: dataSources
 
                         }
 
@@ -424,6 +427,8 @@ function App() {
                         template: false
                     },
                     i: prevLen,
+                    dataSources: dataSources
+    
 
                 }
 
@@ -459,6 +464,7 @@ function App() {
                         template: false
                     },
                     i: prevLen,
+                    dataSources: dataSources
 
                 }
 
@@ -494,7 +500,7 @@ function App() {
 
     let dict = {
         "regression": (props) => {
-            let { v, i } = props.params
+            let { v, i, dataSources } = props.params
             return (
                 <Button key={v.idx} disableRipple
                     sx={{
@@ -524,7 +530,7 @@ function App() {
                 //     }
                 // }}
                 >
-                    <Graph setTotalHeight = {setTotalHeight} i={i} template={v.template} projectSaveClicked={projectSaveClicked} removeIdxFromGraphs={removeIdxFromGraphs} states={v.states} selectedIndexes={selectedGraphIndexes} addToTemplate={addToTemplate} className="graph" type={v.type} idx={v.idx} />
+                    <Graph dataSources ={dataSources} dockviewApi={props.containerApi} setTotalHeight = {setTotalHeight} i={i} template={v.template} projectSaveClicked={projectSaveClicked} removeIdxFromGraphs={removeIdxFromGraphs} states={v.states} selectedIndexes={selectedGraphIndexes} addToTemplate={addToTemplate} className="graph" type={v.type} idx={v.idx} />
                 </Button >
             )
         },
@@ -552,7 +558,6 @@ function App() {
                         }
                     }
                 >
-                    {console.log("here")}
                     <Sheet setTotalHeight = {setTotalHeight} projectSaveClicked={projectSaveClicked} data={m.data} exportClicked={exportt} setExportClicked={setExport} i={i} idx={m.idx} selectedIndexes={selectedDataIndexes} addToTemplate={addToTemplate} key={m.idx} removeIdxFromData={removeIdxFromData} className="sheet" />
                 </Button>
             )
@@ -593,12 +598,14 @@ function App() {
                         <Route path='/' element={
                             <Paper ref={pdfRef} elevation={3} sx={{ width: 4 / 5, m: 'auto', mt: '3rem', mb: '3rem', height: 'auto', padding: '1rem', minHeight: 1000 }}>
                                 <div style={{ height: totalHeight }}>
+                                    <DataContext.Provider value={dataSources}>
                                     <DockviewReact
                                         components={dict}
                                         onReady={onReady}
                                         className={'dockview-theme-light'}
                                         defaultTabComponent={CustomHeader}
                                     />
+                                    </DataContext.Provider>
                                 </div>
                             </Paper>} />
 

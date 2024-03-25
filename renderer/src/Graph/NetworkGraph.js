@@ -2,6 +2,7 @@ import { Button, Switch } from '@mui/material';
 import { useState, useEffect } from 'react'
 import CytoscapeComponent from 'react-cytoscapejs';
 import HomeIcon from '@mui/icons-material/Home';
+import OutlinedInput from '@mui/material/OutlinedInput';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import Drawer from '@mui/material/Drawer';
@@ -24,6 +25,12 @@ import { ColorPicker } from 'material-ui-color'
 import Grid from "@mui/material/Grid"
 import Modal from '@mui/material/Modal'
 import Box from '@mui/material/Box'
+import Chip from '@mui/material/Chip';
+import { KatzBonacichCentrality, LinearInMeans } from './regressionCalculator'
+
+function isNumeric(n) {
+    return !isNaN(parseFloat(n)) && isFinite(n);
+}
 
 const DrawerHeader = styled('div')(({ theme }) => ({
     display: 'flex',
@@ -107,7 +114,10 @@ const reset = (attribute, type, setStylesheet) => {
     })
 }
 
-const MarkovModal = ({ expand, setExpand, inflate, setInflate, markovOpen, setMarkovOpen }) => {
+const MarkovModal = ({ cy, markovOpen, setMarkovOpen, setSource, setTarget }) => {
+    const [expand, setExpand] = useState(2)
+    const [inflate, setInflate] = useState(2)
+
     const style = {
         position: 'absolute',
         top: '50%',
@@ -123,7 +133,43 @@ const MarkovModal = ({ expand, setExpand, inflate, setInflate, markovOpen, setMa
     return (
         <Modal
             open={markovOpen}
-            onClose={(ev) => setMarkovOpen(false)}
+            onClose={(ev) => {
+                let eles = cy?.$()
+                let clusters = eles.markovClustering({
+                    attributes: [
+                        function (edge) { return 1 }
+                    ],
+                    expandFactor: expand,
+                    inflateFactor: inflate
+                })
+                clusters.forEach((cluster, i) => {
+                    cluster.forEach((ele) => {
+                        ele.data("Cluster", `${i}`)
+                    })
+                })
+                setSource(psource => {
+                    let copy = { ...psource }
+                    copy.data = copy.data.map((node, i) => {
+                        let degree = cy?.getElementById(`${node.id}`).data()["Cluster"]
+                        return ({ ...node, 'Cluster': degree })
+
+                    })
+
+                    return copy
+                })
+
+                setTarget(ptarget => {
+                    let copy = { ...ptarget }
+                    copy.data = copy.data.map((node, i) => {
+                        let degree = cy?.getElementById(`${node.id}`).data()["Cluster"]
+                        return ({ ...node, 'Cluster': degree })
+
+                    })
+
+                    return copy
+                })
+                setMarkovOpen(false)
+            }}
         >
             <Box sx={style}>
                 <Typography variant="h6" component="h2"> Set Markov Clustering Parameters</Typography>
@@ -138,16 +184,607 @@ const MarkovModal = ({ expand, setExpand, inflate, setInflate, markovOpen, setMa
     )
 }
 
+const ErdosRenyiModal = ({ cy, erdosRenyiOpen, setErdosRenyiOpen, setSource, setTarget, setLabel, directed }) => {
+    const [probability, setProbability] = useState(0)
+
+    const style = {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: 400,
+        bgcolor: 'background.paper',
+        border: '2px solid #000',
+        boxShadow: 24,
+        p: 4,
+    };
+
+    return (
+        <Modal
+            open={erdosRenyiOpen}
+            onClose={(ev) => {
+                let nodes = cy?.nodes()
+                if (nodes) {
+                    let edges = []
+                    if (directed) {
+                        nodes.forEach(source => {
+                            nodes.forEach(target => {
+                                if (source.id() != target.id()) {
+                                    let rnd = Math.random()
+                                    if (rnd < probability) {
+                                        edges.push({ source: source.id(), target: target.id() })
+                                    }
+                                }
+                            })
+                        })
+
+                    } else {
+                        nodes.forEach((node1, i) => {
+                            nodes.slice(i).forEach(node2 => {
+                                let rnd = Math.random()
+                                if (rnd < probability) {
+                                    edges.push({ source: node1.id(), target: node2.id() })
+                                }
+                            })
+                        })
+                    }
+                    setLabel(plabel => {
+                        let copy = edges.map(data => { return { ...data } })
+                        return { data: [...copy, ...plabel.data], dataset: plabel.dataset }
+
+                    })
+
+                    setSource(psource => {
+                        let copy = edges.map(data => { return cy?.getElementById(data.source).json().data })
+                        let res = copy
+                        psource.data.forEach(node => {
+                            let idx = res.findIndex(snode => snode.id == node.id)
+                            if (idx < 0) {
+                                res.push(node)
+                            } else {
+                                res[idx] = node
+                            }
+                        })
+                        return { data: res, dataset: psource.dataset }
+
+                    })
+
+                    setTarget(ptarget => {
+                        let copy = edges.map(data => { return cy?.getElementById(data.target).json().data })
+                        let res = copy
+                        ptarget.data.forEach(node => {
+                            let idx = res.findIndex(snode => snode.id == node.id)
+                            if (idx < 0) {
+                                res.push(node)
+                            } else {
+                                res[idx] = node
+                            }
+                        })
+                        return { data: res, dataset: ptarget.dataset }
+
+                    })
+                }
+
+                setErdosRenyiOpen(false)
+            }}
+        >
+            <Box sx={style}>
+                <Typography variant="h6" component="h2"> Set Erdos Renyi Graph Parameters</Typography>
+                <FormControl>
+                    <TextField type='number' label="Edge probability" value={probability} onChange={(ev) => { if (ev.target.valueAsNumber >= 0 && ev.target.valueAsNumber <= 1) { setProbability(ev.target.value) } }} />
+                </FormControl>
+            </Box>
+        </Modal>
+    )
+}
+
+const DegreeModal = ({ degreeOpen, setDegreeOpen, cy, setSource, setTarget, type, directed }) => {
+    const [weight, setWeight] = useState("none")
+
+    const style = {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: 400,
+        bgcolor: 'background.paper',
+        border: '2px solid #000',
+        boxShadow: 24,
+        p: 4,
+    };
+
+    const handleChange = (ev) => {
+        setWeight(ev.target.value)
+    }
+
+    return (
+        <Modal
+            open={degreeOpen}
+            onClose={(ev) => {
+                let eles = cy?.$()
+                let nodes = cy?.nodes()
+                if (eles && nodes) {
+                    if (type == "indegrees") {
+                        nodes.forEach(ele => {
+                            let degree = eles.degreeCentrality({ root: ele, directed: true, weight: function (edge) { return isNaN(Number.parseFloat(edge.data()[`${weight}`])) ? 1 : Number.parseFloat(edge.data()[`${weight}`]) }, alpha: 1 }).indegree
+                            ele.data("In_Degree", `${degree}`)
+                        });
+
+                        setSource(psource => {
+                            let copy = { ...psource }
+                            copy.data = copy.data.map((node, i) => {
+                                let degree = cy?.getElementById(`${node.id}`).data()["In_Degree"]
+                                return ({ ...node, 'In_Degree': degree })
+                            })
+
+                            return copy
+                        })
+
+
+                        setTarget(ptarget => {
+                            let copy = { ...ptarget }
+                            copy.data = copy.data.map((node, i) => {
+                                let degree = cy?.getElementById(`${node.id}`).data()["In_Degree"]
+                                return ({ ...node, 'In_Degree': degree })
+
+                            })
+
+                            return copy
+                        })
+                    } else if (type == "outdegrees") {
+                        nodes.forEach(ele => {
+                            let degree = eles.degreeCentrality({ root: ele, directed: true, weight: function (edge) { return isNaN(Number.parseFloat(edge.data()[`${weight}`])) ? 1 : Number.parseFloat(edge.data()[`${weight}`]) }, alpha: 1 }).outdegree
+                            ele.data("Out_Degree", `${degree}`)
+                        });
+
+                        setSource(psource => {
+                            let copy = { ...psource }
+                            copy.data = copy.data.map((node, i) => {
+                                let degree = cy?.getElementById(`${node.id}`).data()["Out_Degree"]
+                                return ({ ...node, 'Out_Degree': degree })
+
+                            })
+
+                            return copy
+                        })
+
+                        setTarget(ptarget => {
+                            let copy = { ...ptarget }
+                            copy.data = copy.data.map((node, i) => {
+                                let degree = cy?.getElementById(`${node.id}`).data()["Out_Degree"]
+                                return ({ ...node, 'Out_Degree': degree })
+
+                            })
+
+                            return copy
+                        })
+
+                    } else if (type == "degrees") {
+                        nodes.forEach(ele => {
+                            let degree = eles.degreeCentrality({ root: ele, weight: function (edge) { return isNaN(Number.parseFloat(edge.data()[`${weight}`])) ? 1 : Number.parseFloat(edge.data()[`${weight}`]) }, alpha: 1 }).degree
+                            ele.data(directed ? "Total_Degree" : "Degree", `${degree}`)
+
+                        });
+
+                        setSource(psource => {
+                            let copy = { ...psource }
+                            copy.data = copy.data.map((node, i) => {
+                                let degree = cy?.getElementById(`${node.id}`).data()["Total_Degree"]
+                                return ({ ...node, 'Total_Degree': degree })
+
+                            })
+
+                            return copy
+                        })
+
+                        setTarget(ptarget => {
+                            let copy = { ...ptarget }
+                            copy.data = copy.data.map((node, i) => {
+                                let degree = cy?.getElementById(`${node.id}`).data()["Total_Degree"]
+                                return ({ ...node, 'Total_Degree': degree })
+
+                            })
+
+                            return copy
+                        })
+
+                    } else if (type == "betweenness") {
+                        let betweenness = eles.betweennessCentrality({ directed: directed, weight: function (edge) { return isNaN(Number.parseFloat(edge.data()[`${weight}`])) ? 1 : Number.parseFloat(edge.data()[`${weight}`]) } }).betweenness
+                        nodes.forEach(ele => {
+                            ele.data("Betweenness_Centrality", `${betweenness(ele)}`)
+
+                        });
+
+                        setSource(psource => {
+                            let copy = { ...psource }
+                            copy.data = copy.data.map((node, i) => {
+                                let degree = cy?.getElementById(`${node.id}`).data()["Betweenness_Centrality"]
+                                return ({ ...node, 'Betweenness_Centrality': degree })
+
+                            })
+
+                            return copy
+                        })
+
+                        setTarget(ptarget => {
+                            let copy = { ...ptarget }
+                            copy.data = copy.data.map((node, i) => {
+                                let degree = cy?.getElementById(`${node.id}`).data()["Betweenness_Centrality"]
+                                return ({ ...node, 'Betweenness_Centrality': degree })
+
+                            })
+
+                            return copy
+                        })
+                    } else if (type == "closeness") {
+                        nodes.forEach(ele => {
+                            let degree = eles.closenessCentrality({ root: ele })
+                            ele.data("Closeness_Centrality", `${degree}`)
+
+                        });
+
+                        setSource(psource => {
+                            let copy = { ...psource }
+                            copy.data = copy.data.map((node, i) => {
+                                let degree = cy?.getElementById(`${node.id}`).data()["Closeness_Centrality"]
+                                return ({ ...node, 'Closeness_Centrality': degree })
+
+                            })
+
+                            return copy
+                        })
+
+                        setTarget(ptarget => {
+                            let copy = { ...ptarget }
+                            copy.data = copy.data.map((node, i) => {
+                                let degree = cy?.getElementById(`${node.id}`).data()["Closeness_Centrality"]
+                                return ({ ...node, 'Closeness_Centrality': degree })
+
+                            })
+
+                            return copy
+                        })
+                    }
+
+                }
+                setDegreeOpen(false)
+            }}
+        >
+            <Box sx={style}>
+                <Typography variant="h6" component="h2">Set Edge Weights</Typography>
+                <FormControl>
+                    <Select
+                        value={weight}
+                        label={"Set Edge Weights"}
+                        onChange={handleChange}
+                    >
+                        <MenuItem value="none">No weights</MenuItem>
+                        {Object.keys(cy?.edges()[0]?.json().data ? cy?.edges()[0]?.json().data : {}).map((key, i) => {
+                            if (cy?.edges().reduce((acc, current) => acc || isNumeric(Number.parseFloat(current.json().data[key])), false)) {
+                                return <MenuItem value={key}>{key}</MenuItem>
+                            }
+                        })
+                        }
+                    </Select>
+                </FormControl>
+            </Box>
+        </Modal >
+    )
+}
+
+const LinearInMeansModal = ({ linearInMeansOpen, setLinearInMeansOpen, cy, setSource, setTarget, directed }) => {
+    const [characteristics, setCharacteristics] = useState([])
+    const [alpha, setAlpha] = useState(1)
+    const [beta, setBeta] = useState(1)
+    const [gamma, setGamma] = useState(1)
+    const [delta, setDelta] = useState(0.5)
+
+    const style = {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: 400,
+        bgcolor: 'background.paper',
+        border: '2px solid #000',
+        boxShadow: 24,
+        p: 4,
+    };
+
+    const handleChange = (ev) => {
+        setCharacteristics(ev.target.value)
+    }
+
+    return (
+        <Modal
+            open={linearInMeansOpen}
+            onClose={(ev) => {
+                let nodes = cy?.nodes()
+                let length = nodes.length
+                let edges = cy?.edges()
+                let nodeToIdxMap = {}
+                let adjacencyMatrix = new Array(length).fill(0).map(() => new Array(length).fill(0))
+                let X = new Array(length).fill(0).map(() => new Array(1).fill(0))
+                nodes.forEach((node, i) => {
+                    nodeToIdxMap[node.id()] = i
+                    X[i] = characteristics.map(characteristic => isNaN(Number.parseFloat(node.json().data[characteristic])) ? 0 : Number.parseFloat(node.json().data[characteristic]))
+                })
+                edges.forEach(edge => {
+                    adjacencyMatrix[nodeToIdxMap[edge.json().data['source']]][nodeToIdxMap[edge.json().data['target']]] = 1
+                    if (!directed) {
+                        adjacencyMatrix[nodeToIdxMap[edge.json().data['target']]][nodeToIdxMap[edge.json().data['source']]] = 1
+                    }
+                })
+
+                let Y = LinearInMeans(adjacencyMatrix, X, alpha, beta, gamma, delta)
+                setLinearInMeansOpen(false)
+            }}
+        >
+            <Box sx={style}>
+                <Typography variant="h6" component="h2">Select Characteristics</Typography>
+                <FormControl>
+                    <Select
+                        multiple
+                        displayEmpty
+                        value={characteristics}
+                        label={"Select Characteristics"}
+                        onChange={handleChange}
+                        input={<OutlinedInput id="select-multiple-chip" label="Chip" />}
+                        renderValue={(selected) => {
+                            if (selected.length === 0) {
+                                return <em>Characteristics</em>
+                            }
+                            return <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {selected.map((value) => (
+                                    <Chip key={value} label={value} />
+                                ))}
+                            </Box>
+                        }}
+                    >
+                        {Object.keys(cy?.nodes()[0]?.json().data ? cy?.nodes()[0]?.json().data : {}).map((key, i) => {
+                            if (cy?.nodes().reduce((acc, current) => acc || isNumeric(Number.parseFloat(current.json().data[key])), false)) {
+                                return <MenuItem value={key}>{key}</MenuItem>
+                            }
+                        })
+                        }
+                    </Select>
+                    <br />
+                    <br />
+                    <TextField type='number' label="Alpha" value={alpha} onChange={(ev) => setAlpha(ev.target.valueAsNumber)} />
+                    <br />
+                    <br />
+                    <TextField type='number' label="Beta" value={beta} onChange={(ev) => { setBeta(ev.target.valueAsNumber) }} />
+                    <br />
+                    <br />
+                    <TextField type='number' label="Gamma" value={gamma} onChange={(ev) => { setGamma(ev.target.valueAsNumber) }} />
+                    <br />
+                    <br />
+                    <TextField type='number' label="Delta" value={delta} onChange={(ev) => { if (ev.target.valueAsNumber < 1 && ev.target.valueAsNumber > -1) { setDelta(ev.target.valueAsNumber) } }} />
+                </FormControl>
+            </Box>
+        </Modal >
+    )
+}
+
+const KatzBonacichModal = ({ cy, katzOpen, setKatzOpen, setSource, setTarget, directed }) => {
+    const [alpha, setAlpha] = useState(1)
+    const [delta, setDelta] = useState(0.5)
+
+    const style = {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: 400,
+        bgcolor: 'background.paper',
+        border: '2px solid #000',
+        boxShadow: 24,
+        p: 4,
+    };
+
+    return (
+        <Modal
+            open={katzOpen}
+            onClose={(ev) => {
+                let nodes = cy?.nodes()
+                let length = nodes.length
+                let edges = cy?.edges()
+                let nodeToIdxMap = {}
+                let adjacencyMatrix = new Array(length).fill(0).map(() => new Array(length).fill(0))
+                nodes.forEach((node, i) => {
+                    nodeToIdxMap[node.id()] = i
+                })
+
+                edges.forEach(edge => {
+                    adjacencyMatrix[nodeToIdxMap[edge.json().data['source']]][nodeToIdxMap[edge.json().data['target']]] = 1
+                    if (!directed) {
+                        adjacencyMatrix[nodeToIdxMap[edge.json().data['target']]][nodeToIdxMap[edge.json().data['source']]] = 1
+                    }
+                })
+
+                let C = KatzBonacichCentrality(adjacencyMatrix, alpha, delta)
+
+
+                setSource(psource => {
+                    let copy = { ...psource }
+                    copy.data = copy.data.map((node, i) => {
+                        let centrality = Math.round(C[nodeToIdxMap[node.id]] * 1000) / 1000
+                        cy?.getElementById(node.id).data("Katz_Bonacich_Centrality", `${centrality}`)
+                        return ({ ...node, 'Katz_Bonacich_Centrality': `${centrality}` })
+
+                    })
+
+                    return copy
+                })
+
+                setTarget(ptarget => {
+                    let copy = { ...ptarget }
+                    copy.data = copy.data.map((node, i) => {
+                        let centrality = Math.round(C[nodeToIdxMap[node.id]] * 1000) / 1000
+                        cy?.getElementById(node.id).data("Katz_Bonacich_Centrality", `${centrality}`)
+                        return ({ ...node, 'Katz_Bonacich_Centrality': `${centrality}` })
+                    })
+
+                    return copy
+                })
+                setKatzOpen(false)
+            }}
+        >
+            <Box sx={style}>
+                <Typography variant="h6" component="h2"> Set Katz-Bonacich Centrality Parameters</Typography>
+                <FormControl>
+                    <TextField type='number' label="Alpha" value={alpha} onChange={(ev) => setAlpha(ev.target.valueAsNumber)} />
+                    <br />
+                    <br />
+                    <TextField type='number' label="Delta" value={delta} onChange={(ev) => { if (ev.target.valueAsNumber < 1 && ev.target.valueAsNumber > -1) { setDelta(ev.target.valueAsNumber) } }} />
+                </FormControl>
+            </Box>
+        </Modal>
+    )
+}
+
+const RggModal = ({ cy, rggOpen, setRggOpen, setSource, setTarget, setLabel, directed }) => {
+    const [delta, setDelta] = useState(1)
+    const [characteristics, setCharacteristics] = useState([])
+
+    const style = {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: 400,
+        bgcolor: 'background.paper',
+        border: '2px solid #000',
+        boxShadow: 24,
+        p: 4,
+    };
+
+    return (
+        <Modal
+            open={rggOpen}
+            onClose={(ev) => {
+                let nodes = cy?.nodes()
+                if (nodes) {
+                    let edges = []
+                    if (directed) {
+                        nodes.forEach((source) => {
+                            nodes.forEach(target => {
+                                if (source.id() != target.id()) {
+                                    let source_characteristics = characteristics.map(characteristic => source.json().data[`${characteristic}`])
+                                    let target_characteristics = characteristics.map(characteristic => target.json().data[`${characteristic}`])
+
+                                    let distance = Math.sqrt(source_characteristics.reduce((aggregate, current, i) => aggregate + Math.pow(current - target_characteristics[i], 2), 0))
+                                    if (distance < delta) {
+                                        edges.push({ source: source.id(), target: target.id() })
+                                    }
+                                }
+                            })
+                        })
+                    } else {
+                        nodes.forEach((node1, i) => {
+                            nodes.slice(i).forEach(node2 => {
+                                if (node1.id() != node2.id()) {
+                                    let node1_characteristics = characteristics.map(characteristic => node1.json().data[`${characteristic}`])
+                                    let node2_characteristics = characteristics.map(characteristic => node2.json().data[`${characteristic}`])
+
+                                    let distance = Math.sqrt(node1_characteristics.reduce((aggregate, current, i) => aggregate + Math.pow(current - node2_characteristics[i], 2), 0))
+                                    if (distance < delta) {
+                                        edges.push({ source: node1.id(), target: node2.id() })
+                                    }
+                                }
+                            })
+                        })
+                    }
+
+                    setLabel(plabel => {
+                        let copy = edges.map(data => { return { ...data } })
+                        return { data: [...copy, ...plabel.data], dataset: plabel.dataset }
+
+                    })
+
+                    setSource(psource => {
+                        let copy = edges.map(data => { return cy?.getElementById(data.source).json().data })
+                        let res = copy
+                        psource.data.forEach(node => {
+                            let idx = res.findIndex(snode => snode.id == node.id)
+                            if (idx < 0) {
+                                res.push(node)
+                            } else {
+                                res[idx] = node
+                            }
+                        })
+                        return { data: res, dataset: psource.dataset }
+
+                    })
+
+                    setTarget(ptarget => {
+                        let copy = edges.map(data => { return cy?.getElementById(data.target).json().data })
+                        let res = copy
+                        ptarget.data.forEach(node => {
+                            let idx = res.findIndex(snode => snode.id == node.id)
+                            if (idx < 0) {
+                                res.push(node)
+                            } else {
+                                res[idx] = node
+                            }
+                        })
+                        return { data: res, dataset: ptarget.dataset }
+
+                    })
+
+                }
+                setRggOpen(false)
+            }}
+        >
+            <Box sx={style}>
+                <Typography variant="h6" component="h2"> Set Random Geometric Graph Parameters</Typography>
+                <FormControl>
+                    <Select
+                        multiple
+                        displayEmpty
+                        value={characteristics}
+                        label={"Select Characteristics"}
+                        onChange={(ev) => { setCharacteristics(ev.target.value) }}
+                        input={<OutlinedInput id="select-multiple-chip" label="Chip" />}
+                        renderValue={(selected) => {
+                            if (selected.length === 0) {
+                                return <em>Characteristics</em>
+                            }
+                            return <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {selected.map((value) => (
+                                    <Chip key={value} label={value} />
+                                ))}
+                            </Box>
+                        }}
+                    >
+                        {Object.keys(cy?.nodes()[0]?.json().data ? cy?.nodes()[0]?.json().data : {}).map((key, i) => {
+                            if (cy?.nodes().reduce((acc, current) => acc || isNumeric(Number.parseFloat(current.json().data[key])), false)) {
+                                return <MenuItem value={key}>{key}</MenuItem>
+                            }
+                        })
+                        }
+                    </Select>
+                    <br />
+                    <br />
+                    <TextField type='number' label="Delta" value={delta} onChange={(ev) => { setDelta(ev.target.valueAsNumber) }} />
+                </FormControl>
+            </Box>
+        </Modal>
+    )
+}
+
 
 const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
     const [colour, setColour] = useState(c)
+    const [undefinedColour, setUndefinedColour] = useState('hsl(0, 0%, 50%)')
 
     useEffect(() => {
+        const filteredLabel = label?.filter(l => l !== undefined && l != "")
         if (colour !== c) {
             setColour(c)
             reset("colour", type, setStylesheet)
             c.forEach((newColour, i) => {
-                let l = label[i]
+                let l = filteredLabel[i]
                 if (attribute == "Constant") {
                     setStylesheet(pstylesheet => {
                         let copy = [...pstylesheet]
@@ -181,7 +818,7 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
                 } else {
                     setStylesheet(pstylesheet => {
                         let copy = [...pstylesheet]
-                        let index = copy.findIndex((obj) => obj.selector == (l ? `${type}[${type == "node" ? attribute : "label"} = "${l}"]` : `${type}[^${attribute}]`))
+                        let index = copy.findIndex((obj) => obj.selector == (l !== undefined ? `${type}[${attribute} = "${l}"]` : `${type}[^${attribute}]`))
                         if (index >= 0) {
                             let style = { ...copy[index]["style"] }
                             let selector = copy[index]["selector"]
@@ -195,7 +832,7 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
                             }
                         } else {
                             copy.push({
-                                selector: l ? `${type}[${type == "node" ? attribute : "label"} = "${l}"]` : `${type}[^${attribute}]`,
+                                selector: l !== undefined ? `${type}[${attribute} = "${l}"]` : `${type}[^${attribute}]`,
                                 style: type == "node" ? {
                                     'background-color': newColour
                                 } : {
@@ -208,6 +845,46 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
                     })
                 }
             })
+            if (attribute != "Constant") {
+                setStylesheet(pstylesheet => {
+                    let copy = [...pstylesheet]
+                    let indexes = copy.map((obj, index) => { if (obj.selector == `${type}[${attribute} = ""]` || obj.selector == `${type}[^${attribute}]`) return index }).filter(item => item !== undefined);
+                    if (indexes.length > 1) {
+                        indexes.forEach((index) => {
+                            let style = { ...copy[index]["style"] }
+                            let selector = copy[index]["selector"]
+                            style[`${type == "node" ? "background" : "line"}-color`] = undefinedColour
+                            if (type == "edge") {
+                                style["target-arrow-color"] = undefinedColour
+                            }
+                            copy[index] = {
+                                selector: selector,
+                                style: style
+                            }
+                        })
+                    } else {
+                        copy.push({
+                            selector: `${type}[${attribute} = ""]`,
+                            style: type == "node" ? {
+                                'background-color': undefinedColour
+                            } : {
+                                    'line-color': undefinedColour,
+                                    'target-arrow-color': undefinedColour
+                                }
+                        })
+                        copy.push({
+                            selector: `${type}[^${attribute}]`,
+                            style: type == "node" ? {
+                                'background-color': undefinedColour
+                            } : {
+                                    'line-color': undefinedColour,
+                                    'target-arrow-color': undefinedColour
+                                }
+                        })
+                    }
+                    return copy
+                })
+            }
         }
     }, [c, attribute, label])
 
@@ -217,7 +894,6 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
             copy[i] = newColour
             return copy
         })
-
         if (attribute == "Constant") {
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
@@ -251,7 +927,7 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
         } else {
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
-                let index = copy.findIndex((obj) => obj.selector == (l ? `${type}[${type == "node" ? attribute : "label"} = "${l}"]` : `${type}[^${attribute}]`))
+                let index = copy.findIndex((obj) => obj.selector == `${type}[${attribute} = "${l}"]`)
                 if (index >= 0) {
                     let style = { ...copy[index]["style"] }
                     let selector = copy[index]["selector"]
@@ -265,7 +941,7 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
                     }
                 } else {
                     copy.push({
-                        selector: l ? `${type}[${type == "node" ? attribute : "label"} = "${l}"]` : `${type}[^${attribute}]`,
+                        selector: `${type}[${attribute} = "${l}"]`,
                         style: type == "node" ? {
                             'background-color': newColour.css.backgroundColor
                         } : {
@@ -280,22 +956,56 @@ const ColourSelector = ({ c, label, attribute, setStylesheet, type }) => {
 
     }
 
+    const handleUndefinedChange = (newColour) => {
+        setUndefinedColour(newColour)
+        setStylesheet(pstylesheet => {
+            let copy = [...pstylesheet]
+            let indexes = copy.map((obj, index) => { if (obj.selector == `${type}[${attribute} = ""]` || obj.selector == `${type}[^${attribute}]`) return index }).filter(item => item !== undefined);
+            if (indexes.length >= 0) {
+                indexes.forEach((index) => {
+                    let style = { ...copy[index]["style"] }
+                    let selector = copy[index]["selector"]
+                    style[`${type == "node" ? "background" : "line"}-color`] = newColour.css.backgroundColor
+                    if (type == "edge") {
+                        style["target-arrow-color"] = newColour.css.backgroundColor
+                    }
+                    copy[index] = {
+                        selector: selector,
+                        style: style
+                    }
+                })
+            }
+            return copy
+        })
+
+    }
+
     return (
         <>
-
             {
-                label?.map((l, i) => {
-                    return (
-                        <Grid container columns={4} alignContent="center" alignItems="center" key={l}>
-                            <Grid item xs={1}>
-                                <ColorPicker value={colour[i]} hideTextfield disableAlpha onChange={(ev) => handleChange(ev, i, l)} />
+                label?.filter(l => l !== undefined && l != "")
+                    .map((l, i) => {
+                        return (
+                            <Grid container columns={4} alignContent="center" alignItems="center" key={l}>
+                                <Grid item xs={1}>
+                                    <ColorPicker value={colour[i]} hideTextfield disableAlpha onChange={(ev) => handleChange(ev, i, l)} />
+                                </Grid>
+                                <Grid item xs={3}>
+                                    <p>{l}</p>
+                                </Grid>
                             </Grid>
-                            <Grid item xs={3}>
-                                <p>{l !== undefined ? l : `${type}s with no valid value`}</p>
-                            </Grid>
-                        </Grid>
-                    )
-                })
+                        )
+                    })
+            }
+            {attribute == "Constant" ||
+                <Grid container columns={4} alignContent="center" alignItems="center">
+                    <Grid item xs={1}>
+                        <ColorPicker value={undefinedColour} hideTextfield disableAlpha onChange={(ev) => handleUndefinedChange(ev)} />
+                    </Grid>
+                    <Grid item xs={3}>
+                        <p>{`${type}s with no valid value`}</p>
+                    </Grid>
+                </Grid>
             }
         </>
     )
@@ -317,8 +1027,9 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
     }, [])
 
     const getSize = (l, min, max) => {
-        let minimumLabel = Math.min(...(label.filter(l => l !== undefined)))
-        let maximumLabel = Math.max(...(label.filter(l => l !== undefined)))
+        if (l == "") return undefinedVal
+        let minimumLabel = Math.min(...(label.filter(l => l !== undefined && l != "")))
+        let maximumLabel = Math.max(...(label.filter(l => l !== undefined && l != "")))
         if (minimumLabel == maximumLabel) {
             return ((max - min) / 2) + min
         } else {
@@ -364,19 +1075,19 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
                 label.forEach((l) => {
-                    let index = copy.findIndex((obj) => obj.selector == `node[${attribute} = "${l}"]`)
+                    let index = copy.findIndex((obj) => obj.selector == `${type}[${attribute} = ${l}]`)
                     let size = getSize(l, min, max)
                     if (index >= 0) {
                         let style = { ...copy[index]["style"] }
                         style["height"] = size
                         style["width"] = size
                         copy[index] = {
-                            selector: `node[${attribute} = "${l}"]`,
+                            selector: `${type}[${attribute} = "${l}"]`,
                             style: style
                         }
                     } else {
                         copy.push({
-                            selector: `node[${attribute} = "${l}"]`,
+                            selector: `${type}[${attribute} = "${l}"]`,
                             style: {
                                 'height': size,
                                 'width': size
@@ -424,25 +1135,26 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
             })
         } else if (eventType == "min") {
 
-            let num = parseInt(ev.target.value)
+            let num = parseFloat(ev.target.value)
             num = num > 0 ? num < max ? num : max : 0
             setMin(num)
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
                 label.forEach((l) => {
-                    let index = copy.findIndex((obj) => obj.selector == `node[${attribute} = "${l}"]`)
+
+                    let index = copy.findIndex((obj) => obj.selector == `${type}[${attribute} = ${l}]`)
                     let size = getSize(l, num, max)
                     if (index >= 0) {
                         let style = { ...copy[index]["style"] }
                         style["height"] = size
                         style["width"] = size
                         copy[index] = {
-                            selector: `node[${attribute} = "${l}"]`,
+                            selector: `${type}[${attribute} = "${l}"]`,
                             style: style
                         }
                     } else {
                         copy.push({
-                            selector: `node[${attribute} = "${l}"]`,
+                            selector: `${type}[${attribute} = "${l}"]`,
                             style: {
                                 'height': size,
                                 'width': size
@@ -454,25 +1166,25 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
             })
         } else if (eventType == "max") {
 
-            let num = parseInt(ev.target.value)
+            let num = parseFloat(ev.target.value)
             num = num > min ? num : min
             setMax(num)
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
                 label.forEach((l) => {
-                    let index = copy.findIndex((obj) => obj.selector == `node[${attribute} = "${l}"]`)
+                    let index = copy.findIndex((obj) => obj.selector == `${type}[${attribute} = ${l}]`)
                     let size = getSize(l, min, num)
                     if (index >= 0) {
                         let style = { ...copy[index]["style"] }
                         style["height"] = size
                         style["width"] = size
                         copy[index] = {
-                            selector: `node[${attribute} = "${l}"]`,
+                            selector: `${type}[${attribute} = "${l}"]`,
                             style: style
                         }
                     } else {
                         copy.push({
-                            selector: `node[${attribute} = "${l}"]`,
+                            selector: `${type}[${attribute} = "${l}"]`,
                             style: {
                                 'height': size,
                                 'width': size
@@ -484,23 +1196,23 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
                 return copy
             })
         } else if (eventType == "undefined") {
-            let num = parseInt(ev.target.value)
+            let num = parseFloat(ev.target.value)
             setUndefinedVal(num)
             setStylesheet(pstylesheet => {
                 let copy = [...pstylesheet]
-                label.forEach((l) => {
-                    let index = copy.findIndex((obj) => obj.selector == `node[^${attribute}]`)
+                let indexes = copy.map((obj, i) => obj.selector == `${type}[^${attribute}]` || obj.selector == `${type}[${attribute} = ""]` ? i : undefined).filter(v => v != undefined)
+                indexes.forEach((index) => {
                     if (index >= 0) {
                         let style = { ...copy[index]["style"] }
                         style["height"] = num
                         style["width"] = num
                         copy[index] = {
-                            selector: `node[^${attribute}]`,
+                            selector: copy[index].selector,
                             style: style
                         }
                     } else {
                         copy.push({
-                            selector: `node[^${attribute}]`,
+                            selector: copy[index].selector,
                             style: {
                                 'height': num,
                                 'width': num
@@ -508,7 +1220,6 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
                         })
                     }
                 })
-
                 return copy
             })
         }
@@ -523,7 +1234,7 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
                     <br />
                     <TextField label="Max" type="number" value={max} onChange={(ev) => handleSizeChange(ev, "max")} />
                     <br />
-                    <TextField label="Size for nodes with no defined value" type="number" value={undefinedVal} onChange={(ev) => handleSizeChange(ev, "undefined")} />
+                    <TextField label={`Size for ${type}s with no defined value`} type="number" value={undefinedVal} onChange={(ev) => handleSizeChange(ev, "undefined")} />
                 </>}
 
 
@@ -531,7 +1242,7 @@ const SizeSelector = ({ setStylesheet, attribute, label, type }) => {
     )
 }
 
-export default function NetworkGraph({ elements, directed, stylesheet, setStylesheet, setSource, setTarget }) {
+export default function NetworkGraph({ elements, directed, stylesheet, setStylesheet, setSource, setTarget, setLabel }) {
 
     const [cy, setCy] = useState(undefined)
     const [open, setOpen] = useState(false);
@@ -551,12 +1262,16 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
     const [edgeLabelValue, setEdgeLabelValue] = useState("")
     const [nodeLabelSize, setNodeLabelSize] = useState()
     const [edgeLabelSize, setEdgeLabelSize] = useState()
-    const [inflate, setInflate] = useState(2)
-    const [expand, setExpand] = useState(2)
     const [markovOpen, setMarkovOpen] = useState(false)
+    const [katzOpen, setKatzOpen] = useState(false)
+    const [linearInMeansOpen, setLinearInMeansOpen] = useState(false)
+    const [erdosRenyiOpen, setErdosRenyiOpen] = useState(false)
     const [switchChecked, setSwitchChecked] = useState(true)
     const [length, setLength] = useState(elements.length)
     const [layoutAlgo, setlayoutAlgo] = useState("cose")
+    const [degreeOpen, setDegreeOpen] = useState(false)
+    const [degreeType, setDegreeType] = useState("")
+    const [rggOpen, setRggOpen] = useState(false)
 
     useEffect(() => {
         setStylesheet(pstylesheet => {
@@ -597,9 +1312,9 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
     }, [nodeColourAttribute, cy, elements])
 
     useEffect(() => {
-        setEdgeColourLabels(edgeColourAttribute == "Constant" ? ["Colour for all edges"] : edgeColourAttribute == "id" ? Array.from(new Set(cy?.$("edge").map((ele, i) => {
-            return (ele.json().data["label"])
-        }))) : [])
+        setEdgeColourLabels(edgeColourAttribute == "Constant" ? ["Colour for all edges"] : Array.from(new Set(cy?.edges().map((ele, i) => {
+            return (ele.json().data[edgeColourAttribute])
+        }))))
     }, [edgeColourAttribute, cy, elements])
 
     useEffect(() => {
@@ -609,7 +1324,9 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
     }, [nodeSizeAttribute, cy])
 
     useEffect(() => {
-        setEdgeSizeLabels(edgeSizeAttribute == "Constant" ? ["Size for all edges"] : [])
+        setEdgeSizeLabels(edgeSizeAttribute == "Constant" ? ["Size for all edges"] : Array.from(new Set(cy?.edges().map((ele, i) => {
+            return (ele.json().data[edgeSizeAttribute])
+        }))))
     }, [edgeSizeAttribute, cy])
 
     useEffect(() => {
@@ -808,7 +1525,7 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
                         indexes.forEach((index) => {
                             let style = { ...copy[index]["style"] }
                             let selector = copy[index]["selector"]
-                            style["label"] = `${ev.target.value == "Constant" ? label : ev.target.value == "none" ? "" : `data(label)`}`
+                            style["label"] = `${ev.target.value == "Constant" ? label : ev.target.value == "none" ? "" : `data(${ev.target.value})`}`
                             copy[index] = {
                                 selector: selector,
                                 style: style
@@ -818,7 +1535,7 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
                         copy.push({
                             selector: 'edge',
                             style: {
-                                'label': `${ev.target.value == "Constant" ? label : ev.target.value == "none" ? "" : `data(label)`}`
+                                'label': `${ev.target.value == "Constant" ? label : ev.target.value == "none" ? "" : `data(${ev.target.value})`}`
                             }
                         })
                     }
@@ -862,99 +1579,27 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
         let eles = cy?.$()
         let nodes = cy?.nodes()
         if (eles && nodes) {
-            nodes.forEach(ele => {
-                let degree = eles.degreeCentrality({ root: ele, directed: true }).indegree
-                ele.data("In_Degree", `${degree}`)
-            });
+            setDegreeType("indegrees")
+            setDegreeOpen(true)
         }
-        setSource(psource => {
-            let copy = { ...psource }
-            copy.data = copy.data.map((node, i) => {
-                let degree = cy?.getElementById(`${node.id}`).data()["In_Degree"]
-                return ({ ...node, 'In_Degree': degree })
-            })
-
-            return copy
-        })
-
-
-        setTarget(ptarget => {
-            let copy = { ...ptarget }
-            copy.data = copy.data.map((node, i) => {
-                let degree = cy?.getElementById(`${node.id}`).data()["In_Degree"]
-                return ({ ...node, 'In_Degree': degree })
-
-            })
-
-            return copy
-        })
     }
 
     const getOutDegrees = (ev) => {
         let eles = cy?.$()
         let nodes = cy?.nodes()
         if (eles && nodes) {
-            nodes.forEach(ele => {
-                let degree = eles.degreeCentrality({ root: ele, directed: true }).outdegree
-                ele.data("Out_Degree", `${degree}`)
-            });
+            setDegreeType("outdegrees")
+            setDegreeOpen(true)
         }
-
-        setSource(psource => {
-            let copy = { ...psource }
-            copy.data = copy.data.map((node, i) => {
-                let degree = cy?.getElementById(`${node.id}`).data()["Out_Degree"]
-                return ({ ...node, 'Out_Degree': degree })
-
-            })
-
-            return copy
-        })
-
-        setTarget(ptarget => {
-            let copy = { ...ptarget }
-            copy.data = copy.data.map((node, i) => {
-                let degree = cy?.getElementById(`${node.id}`).data()["Out_Degree"]
-                return ({ ...node, 'Out_Degree': degree })
-
-            })
-
-            return copy
-        })
     }
 
     const getDegrees = (ev) => {
         let eles = cy?.$()
         let nodes = cy?.nodes()
         if (eles && nodes) {
-            nodes.forEach(ele => {
-                let degree = eles.degreeCentrality({ root: ele }).degree
-                ele.data(directed ? "Total_Degree" : "Degree", `${degree}`)
-
-            });
+            setDegreeType("degrees")
+            setDegreeOpen(true)
         }
-
-        setSource(psource => {
-            let copy = { ...psource }
-            copy.data = copy.data.map((node, i) => {
-                let degree = cy?.getElementById(`${node.id}`).data()["Total_Degree"]
-                return ({ ...node, 'Total_Degree': degree })
-
-            })
-
-            return copy
-        })
-
-        setTarget(ptarget => {
-            let copy = { ...ptarget }
-            copy.data = copy.data.map((node, i) => {
-                let degree = cy?.getElementById(`${node.id}`).data()["Total_Degree"]
-                return ({ ...node, 'Total_Degree': degree })
-
-            })
-
-            return copy
-        })
     }
 
     const getPageRank = (ev) => {
@@ -997,41 +1642,7 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
         let eles = cy?.$()
         if (eles) {
             setMarkovOpen(true)
-            let clusters = eles.markovClustering({
-                attributes: [
-                    function (edge) { return 1 }
-                ],
-                expandFactor: expand,
-                inflateFactor: inflate
-            })
-            clusters.forEach((cluster, i) => {
-                cluster.forEach((ele) => {
-                    ele.data("Cluster", `${i}`)
-                })
-            })
         }
-
-        setSource(psource => {
-            let copy = { ...psource }
-            copy.data = copy.data.map((node, i) => {
-                let degree = cy?.getElementById(`${node.id}`).data()["Cluster"]
-                return ({ ...node, 'Cluster': degree })
-
-            })
-
-            return copy
-        })
-
-        setTarget(ptarget => {
-            let copy = { ...ptarget }
-            copy.data = copy.data.map((node, i) => {
-                let degree = cy?.getElementById(`${node.id}`).data()["Cluster"]
-                return ({ ...node, 'Cluster': degree })
-
-            })
-
-            return copy
-        })
     }
 
 
@@ -1039,33 +1650,9 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
         let eles = cy?.$()
         let nodes = cy?.nodes()
         if (eles && nodes) {
-            let betweenness = eles.betweennessCentrality({ directed: directed }).betweenness
-            nodes.forEach(ele => {
-                ele.data("Betweenness_Centrality", `${betweenness(ele)}`)
-
-            });
+            setDegreeType("betweenness")
+            setDegreeOpen(true)
         }
-        setSource(psource => {
-            let copy = { ...psource }
-            copy.data = copy.data.map((node, i) => {
-                let degree = cy?.getElementById(`${node.id}`).data()["Betweenness_Centrality"]
-                return ({ ...node, 'Betweenness_Centrality': degree })
-
-            })
-
-            return copy
-        })
-
-        setTarget(ptarget => {
-            let copy = { ...ptarget }
-            copy.data = copy.data.map((node, i) => {
-                let degree = cy?.getElementById(`${node.id}`).data()["Betweenness_Centrality"]
-                return ({ ...node, 'Betweenness_Centrality': degree })
-
-            })
-
-            return copy
-        })
     }
 
 
@@ -1073,33 +1660,39 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
         let eles = cy?.$()
         let nodes = cy?.nodes()
         if (eles && nodes) {
-            nodes.forEach(ele => {
-                let degree = eles.closenessCentrality({ root: ele })
-                ele.data("Closeness_Centrality", `${degree}`)
-
-            });
+            setDegreeType("closeness")
+            setDegreeOpen(true)
         }
-        setSource(psource => {
-            let copy = { ...psource }
-            copy.data = copy.data.map((node, i) => {
-                let degree = cy?.getElementById(`${node.id}`).data()["Closeness_Centrality"]
-                return ({ ...node, 'Closeness_Centrality': degree })
+    }
 
-            })
+    const getKatzBonacichCentrality = (ev) => {
+        let eles = cy?.$()
+        let nodes = cy?.nodes()
+        if (eles && nodes) {
+            setKatzOpen(true)
+        }
+    }
 
-            return copy
-        })
+    const getLinearInMeans = (ev) => {
+        let eles = cy?.$()
+        let nodes = cy?.nodes()
+        if (eles && nodes) {
+            setLinearInMeansOpen(true)
+        }
+    }
 
-        setTarget(ptarget => {
-            let copy = { ...ptarget }
-            copy.data = copy.data.map((node, i) => {
-                let degree = cy?.getElementById(`${node.id}`).data()["Closeness_Centrality"]
-                return ({ ...node, 'Closeness_Centrality': degree })
+    const generateErdosRenyiEdges = (ev) => {
+        let nodes = cy?.nodes()
+        if (nodes) {
+            setErdosRenyiOpen(true)
+        }
+    }
 
-            })
-
-            return copy
-        })
+    const generateRggEdges = (ev) => {
+        let nodes = cy?.nodes()
+        if (nodes) {
+            setRggOpen(true)
+        }
     }
 
     useEffect(() => {
@@ -1119,19 +1712,12 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
         'Page Rank': getPageRank,
         "Markov Clustering": getMarkovCluster,
         "Betweenness Centrality": getBetweennessCentrality,
-        "Closeness Centrality": getClosenessCentrality
-    }
+        "Closeness Centrality": getClosenessCentrality,
+        "Katz Bonacich Centrality": getKatzBonacichCentrality,
+        "Linear In-Means Model": getLinearInMeans,
+        "Erdos-Renyi Graph": generateErdosRenyiEdges,
+        "Random Geometric Graph": generateRggEdges
 
-    const isNumerical = {
-        'In_Degree': true,
-        'Out_Degree': true,
-        'Total_Degree': true,
-        'Degree': true,
-        'Page_Rank': true,
-        "Markov_Clustering": true,
-        "Betweenness_Centrality": true,
-        "Closeness_Centrality": true,
-        "id": false
     }
 
     return <div style={{ textAlign: 'left', alignItems: 'flex-start', display: 'flex', outlineColor: 'lightgray', outlineWidth: '2px', outlineStyle: 'solid' }}>
@@ -1175,7 +1761,7 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
             </DrawerHeader>
             <Typography variant='h6' align='center'>Calculate</Typography>
             <List>
-                {(directed ? ['In Degree', 'Out Degree', 'Total Degree', 'Page Rank', "Betweenness Centrality", "Closeness Centrality", "Markov Clustering"] : ['Degree', 'Page Rank', "Betweenness Centrality", "Closeness Centrality", "Markov Clustering"]).map((text, index) => (
+                {(directed ? ['In Degree', 'Out Degree', 'Total Degree', 'Page Rank', "Betweenness Centrality", "Closeness Centrality", "Markov Clustering", "Katz Bonacich Centrality", "Linear In-Means Model"] : ['Degree', 'Page Rank', "Betweenness Centrality", "Closeness Centrality", "Markov Clustering", "Katz Bonacich Centrality", "Linear In-Means Model"]).map((text, index) => (
                     <ListItem key={text} disablePadding>
                         <ListItemButton onClick={mapButtonsToFuncs[text]}>
                             <ListItemText primary={text} align="center" />
@@ -1183,13 +1769,29 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
                     </ListItem>
                 ))}
             </List>
-            <MarkovModal inflate={inflate} setInflate={setInflate} expand={expand} setExpand={setExpand} markovOpen={markovOpen} setMarkovOpen={setMarkovOpen} />
+            <MarkovModal cy={cy} setSource={setSource} setTarget={setTarget} markovOpen={markovOpen} setMarkovOpen={setMarkovOpen} />
+            <KatzBonacichModal cy={cy} setSource={setSource} setTarget={setTarget} katzOpen={katzOpen} setKatzOpen={setKatzOpen} directed={directed} />
+            <DegreeModal cy={cy} setSource={setSource} setTarget={setTarget} type={degreeType} directed={directed} degreeOpen={degreeOpen} setDegreeOpen={setDegreeOpen} />
+            <LinearInMeansModal cy={cy} setSource={setSource} setTarget={setTarget} directed={directed} linearInMeansOpen={linearInMeansOpen} setLinearInMeansOpen={setLinearInMeansOpen} />
+            <Divider />
+            <Typography variant='h6' align='center'>Generate Edges</Typography>
+            <List>
+                {(["Erdos-Renyi Graph", 'Random Geometric Graph']).map((text, index) => (
+                    <ListItem key={text} disablePadding>
+                        <ListItemButton onClick={mapButtonsToFuncs[text]}>
+                            <ListItemText primary={text} align="center" />
+                        </ListItemButton>
+                    </ListItem>
+                ))}
+            </List>
+            <ErdosRenyiModal cy={cy} setSource={setSource} setTarget={setTarget} erdosRenyiOpen={erdosRenyiOpen} setErdosRenyiOpen={setErdosRenyiOpen} setLabel={setLabel} directed={directed} />
+            <RggModal cy={cy} setSource={setSource} setTarget={setTarget} rggOpen={rggOpen} setRggOpen={setRggOpen} directed={directed} setLabel={setLabel} />
             <Divider />
             <Typography variant='h6' align='center'>Layout</Typography>
             <br />
             <List>
                 <ListItem disablePadding sx={{ display: 'flex', flexDirection: 'column', pl: 1, pr: 1 }}>
-                    <FormControl sx={{ width: '100%'}}>
+                    <FormControl sx={{ width: '100%' }}>
                         <InputLabel id="demo-simple-select-label">Select Algorithm</InputLabel>
                         <Select
                             labelId="demo-simple-select-label"
@@ -1230,10 +1832,10 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
                                         {Object.keys(cy?.nodes()[0]?.json().data ? cy?.nodes()[0]?.json().data : {}).map((key, i) => {
                                             if (cy?.nodes()[0]?.json().data[key] != null) {
                                                 if (text == "Set Colour From" || text == "Set Label From") {
-                                                    return key == 'label' ? <></> : <MenuItem value={key}>{key == 'id' ? "Input Label" : key.split("_").join(" ")}</MenuItem>
+                                                    return <MenuItem value={key}>{key.split("_").join(" ")}</MenuItem>
                                                 } else {
-                                                    if (isNumerical[key]) {
-                                                        return key == 'label' ? <></> : <MenuItem value={key}>{key == 'id' ? "Input Label" : key.split("_").join(" ")}</MenuItem>
+                                                    if (cy?.nodes().reduce((acc, current) => acc || isNumeric(Number.parseFloat(current.json().data[key])), false)) {
+                                                        return <MenuItem value={key}>{key.split("_").join(" ")}</MenuItem>
                                                     }
                                                 }
 
@@ -1287,17 +1889,29 @@ export default function NetworkGraph({ elements, directed, stylesheet, setStyles
                                         onChange={(ev) => { handleAttributeChange(text, ev, edgeLabelValue, false) }}
                                     >
                                         <MenuItem value="Constant">{text == "Set Colour From" ? "Constant Colour" : text == "Set Size From" ? "Constant Size" : "A Constant Label"}</MenuItem>
-                                        {text == "Set Colour From" || text == "Set Label From" ? <MenuItem value="id">Input Label</MenuItem> : []}
-                                        {text == "Set Colour From" || text == "Set Size From" ? <MenuItem value="source">Source Node</MenuItem> : []}
-                                        {text == "Set Colour From" || text == "Set Size From" ? <MenuItem value="target">Target Node</MenuItem> : []}
+                                        {Object.keys(cy?.edges()[0]?.json().data ? cy?.edges()[0]?.json().data : {}).map((key, i) => {
+                                            if (cy?.edges()[0]?.json().data[key] != null) {
+                                                if (text == "Set Colour From") {
+                                                    return <MenuItem value={key}>{key == "source" ? "Source Node" : key == "target" ? "Target Node" : key == "id" ? "ID" : key.split("_").join(" ")}</MenuItem>
+                                                } else if (text == "Set Label From") {
+                                                    return key == "source" ? <></> : key == "target" ? <></> : <MenuItem value={key}>{key == "id" ? "ID" : key.split("_").join(" ")}</MenuItem>
+                                                } else {
+                                                    if (cy?.edges().reduce((acc, current) => acc || isNumeric(Number.parseFloat(current.json().data[key])), false) || key == "source" || key == "target") {
+                                                        return <MenuItem value={key}>{key == "source" ? "Source Node" : key == "target" ? "Target Node" : key == "id" ? "ID" : key.split("_").join(" ")}</MenuItem>
+                                                    }
+                                                }
+
+                                            }
+
+                                        })}
                                         {text == "Set Label From" ? <MenuItem value="none">No label</MenuItem> : []}
                                     </Select>
                                 </FormControl>
                             </ListItem>
                             {text == "Set Colour From" ?
-                                edgeColourAttribute == "id" || edgeColourAttribute == "Constant" ? <ColourSelector key="edge" setStylesheet={setStylesheet} attribute={edgeColourAttribute} key={edgeColourLabels} label={edgeColourLabels} c={edgeC} type="edge" /> : <></>
-                                : text == "Set Size From" ? edgeSizeAttribute == "Constant" ? <SizeSelector key="edge" setStylesheet={setStylesheet} attribute={edgeSizeAttribute} label={edgeSizeLabels} type="edge" /> : <></>
-                                    : text == "Set Label From" ? edgeLabelAttribute == "Constant" ? <FormControl sx={{ p: 1 }}><TextField label='Label for all nodes' value={edgeLabelValue} onChange={(ev) => { setEdgeLabelValue(ev.target.value); handleAttributeChange("Set Label From", { target: { value: "Constant" } }, ev.target.value, false) }} /></FormControl> : <></> : <></>}
+                                <ColourSelector key="edge" setStylesheet={setStylesheet} attribute={edgeColourAttribute} key={edgeColourLabels} label={edgeColourLabels} c={edgeC} type="edge" />
+                                : text == "Set Size From" ? (edgeSizeAttribute != "source" && edgeSizeAttribute != "target") ? <SizeSelector key="edge" setStylesheet={setStylesheet} attribute={edgeSizeAttribute} label={edgeSizeLabels} type="edge" /> : <></>
+                                    : text == "Set Label From" ? edgeLabelAttribute == 'Constant' ? <FormControl sx={{ p: 1 }}><TextField label='Label for all edges' value={edgeLabelValue} onChange={(ev) => { setEdgeLabelValue(ev.target.value); handleAttributeChange("Set Label From", { target: { value: "Constant" } }, ev.target.value, false) }} /></FormControl> : <></> : <></>}
                             <br />
                         </>
                     ))}

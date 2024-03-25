@@ -40,3 +40,9 @@
 .dockview-theme-light {
     --dv-background-color: white !important;
 }
+
+.jsoneditor {
+    height: 400px !important;
+    margin: 3px;
+    margin-top: 15px;
+}

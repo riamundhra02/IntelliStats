@@ -67,3 +67,80 @@ export function regressionCalculator(X, y, intercept) {
     return beta;
 
 }
+
+function G_w(G) {
+    return G.map((row, i) =>{
+        return row.map((ele, j) => {
+            return ele ? ele/(row.reduce((aggregate, current, k) => {
+                return k!=i ? aggregate + current : aggregate
+            })) : 0
+        })
+    })
+}
+
+export function KatzBonacichCentrality(G, alpha, delta) {
+    let Gw = G_w(G)
+    let delta_Gw = Gw.map(row => {
+        return row.map(ele =>{
+            return delta * ele
+        })
+    })
+
+    let matrix = delta_Gw.map((row,i) =>{
+        return row.map((ele, j) => {
+            return i==j ? 1- ele : -ele
+        })
+    })
+
+    let inverse_matrix = inverse(matrix)
+
+    return inverse_matrix.map(row => {
+        return row.reduce((aggregate,ele) => {
+            return aggregate + alpha * ele
+        }, 0)
+    })
+
+}
+
+export function LinearInMeans(G, X, alpha, beta, gamma, delta) {
+    let Gw = G_w(G)
+    let delta_Gw = Gw.map(row => {
+        return row.map(ele =>{
+            return delta * ele
+        })
+    })
+
+    let matrix1 = delta_Gw.map((row,i) =>{
+        return row.map((ele, j) => {
+            return i==j ? 1- ele : -ele
+        })
+    })
+
+    let inverse_matrix1 = inverse(matrix1)
+
+
+    let beta_X = X.map(row => {
+        return row.map(ele => {
+            return beta * ele
+        })
+    })
+
+    let Gw_X = multiply(Gw, X)
+
+
+    let gamma_Gw_X = Gw_X.map(row => {
+        return row.map(ele => {
+            return gamma * ele
+        })
+    })
+
+    let matrix2 = gamma_Gw_X.map((row,i) => {
+        return row.map((ele,j) => {
+            return alpha + ele + beta_X[i][j]
+        })
+    })
+
+
+    return multiply(inverse_matrix1, matrix2)
+
+}

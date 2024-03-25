@@ -42,7 +42,7 @@ const Renderer = (props) => {
     return <span unselectable={isInRange ? "on" : "off"}>{props.value}</span>
 }
 
-export default function Sheet({ setTotalHeight, data, exportClicked, setExportClicked, i, idx, selectedIndexes, addToTemplate, removeIdxFromData, projectSaveClicked }) {
+export default function Sheet({setTotalHeight, data, exportClicked, setExportClicked, i, idx, selectedIndexes, addToTemplate, removeIdxFromData, projectSaveClicked }) {
     const [range, setRange] = useState()
     const [height, setHeight] = useState(500)
 
@@ -65,7 +65,7 @@ export default function Sheet({ setTotalHeight, data, exportClicked, setExportCl
             api.setDomLayout('normal');
             setHeight(560)
             setTotalHeight(pheight => {
-                return pheight + 608
+                return pheight + 615
             })
         }
         else {
@@ -73,7 +73,7 @@ export default function Sheet({ setTotalHeight, data, exportClicked, setExportCl
             api.resetRowHeights();
             setHeight(null)
             setTotalHeight(pheight => {
-                return pheight + calculatedGridHeight + 108
+                return pheight + calculatedGridHeight + 115
             })
         }
     }
@@ -92,12 +92,12 @@ export default function Sheet({ setTotalHeight, data, exportClicked, setExportCl
             && renderedRowCount > 0
             && maxHeight !== 0) {
             setTotalHeight(pheight => {
-                return pheight - 608
+                return pheight - 615
             })
         }
         else {
             setTotalHeight(pheight => {
-                return pheight - calculatedGridHeight - 108
+                return pheight - calculatedGridHeight - 115
             })
         }
     }

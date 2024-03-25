@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useContext } from 'react'
+import { DataContext } from "../App";
 import InputLabel from '@mui/material/InputLabel';
 import { registerTransform } from 'echarts/core';
 import { transform, regression } from 'echarts-stat';
+import { styled } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
 import MenuItem from '@mui/material/MenuItem';
@@ -22,6 +24,7 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Modal from '@mui/material/Modal'
 import Box from '@mui/material/Box'
+import Switch from '@mui/material/Switch'
 import CustomTabPanel from './CustomTabPanel'
 import { AgGridReact } from 'ag-grid-react'
 // import Editor, { DiffEditor, useMonaco, loader } from '@monaco-editor/react';
@@ -33,10 +36,11 @@ import Ajv from 'ajv';
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
-const CustomHeader = ({ displayName, isInput, api, column }) => {
+const CustomHeader = ({ dataSources, displayName, isInput, api, column }) => {
     const [name, setName] = useState(displayName)
-
-    const onChange = (ev) => {
+    const [key, setKey] = useState('');
+    const options = dataSources?.map((source, i) => { return { keys: Object.keys(source.data[0]), idx: i } }).flat()
+    const onInputFieldChange = (ev) => {
         setName(ev.target.value)
         let colDefs = api.getColumnDefs();
         let id = column.getColId()
@@ -49,20 +53,118 @@ const CustomHeader = ({ displayName, isInput, api, column }) => {
         editColDef.field = ev.target.value;
         api.setColumnDefs(colDefs);
     }
+
+    const onDropDownChange = (ev) => {
+        setKey(ev.target.value)
+        let key = ev.target.value.substring(0, ev.target.value.lastIndexOf(" "))
+        let idx = Number.parseInt(ev.target.value.substring(ev.target.value.lastIndexOf(" "), ev.target.value.length))
+        let colDefs = api.getColumnDefs();
+        let id = column.getColId()
+        let editColDef;
+        colDefs.forEach(colDef => {
+            if (colDef.colId == id) {
+                editColDef = colDef;
+            }
+        })
+        editColDef.field = key;
+        api.setColumnDefs(colDefs);
+
+        let rowData = [];
+        api.forEachNode((node, i) => {
+            let currentData = { ...node.data }
+            currentData[key] = dataSources[idx].data[i] ? `${dataSources[idx].data[i][key]}` : ''
+            node.updateData(currentData)
+        });
+        // console.log([...rowData])
+        // rowData = rowData.map((row, i) => {
+        //     let copy = { ...row }
+        //     copy[key] = dataSources[idx].data[i] ? dataSources[idx].data[i][key] : ''
+        //     return copy
+
+        // })
+        // api.applyTransaction({ remove: rowData, add: rowData })
+    };
     return (
         <div class="ag-cell-label-container" role="presentation" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-            {isInput ? <TextField className="ag-header-cell-text" variant="filled" size="small" label="Attribute Name" margin='none' sx={{ padding: 0 }} onChange={onChange} value={name} /> : <span class="ag-header-cell-text" style={{ fontSize: 16 }}>{name}</span>}
+            {isInput ? dataSources ? <Select
+                value={key}
+                label="Attribute Name"
+                onChange={onDropDownChange}
+                sx={{
+                    width: "100%"
+                }}
+            >
+                {options.map(opt => {
+                    return opt.keys.map((key, i) => {
+                        return <MenuItem key={i} idx={opt.idx} value={`${key} ${opt.idx}`}>{key}</MenuItem>
+                    }
+                    )
+                })}
+            </Select> : <TextField className="ag-header-cell-text" variant="filled" size="small" label="Attribute Name" margin='none' sx={{ padding: 0 }} onChange={onInputFieldChange} value={name} /> : <span class="ag-header-cell-text" style={{ fontSize: 16 }}>{name}</span>}
         </div>
 
     )
 }
 
+const MaterialUISwitch = styled(Switch)(({ theme }) => ({
+    width: 62,
+    height: 34,
+    padding: 7,
+    '& .MuiSwitch-switchBase': {
+        margin: 1,
+        padding: 0,
+        transform: 'translateX(6px)',
+        '&.Mui-checked': {
+            color: '#fff',
+            transform: 'translateX(22px)',
+            '& .MuiSwitch-thumb:before': {
+                // position: 'absolute',
+                width: '70%',
+                height: '70%',
+                // top: "'10%",
+                // left: '10%',
+                backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>code-json</title><path d="M5,3H7V5H5V10A2,2 0 0,1 3,12A2,2 0 0,1 5,14V19H7V21H5C3.93,20.73 3,20.1 3,19V15A2,2 0 0,0 1,13H0V11H1A2,2 0 0,0 3,9V5A2,2 0 0,1 5,3M19,3A2,2 0 0,1 21,5V9A2,2 0 0,0 23,11H24V13H23A2,2 0 0,0 21,15V19A2,2 0 0,1 19,21H17V19H19V14A2,2 0 0,1 21,12A2,2 0 0,1 19,10V5H17V3H19M12,15A1,1 0 0,1 13,16A1,1 0 0,1 12,17A1,1 0 0,1 11,16A1,1 0 0,1 12,15M8,15A1,1 0 0,1 9,16A1,1 0 0,1 8,17A1,1 0 0,1 7,16A1,1 0 0,1 8,15M16,15A1,1 0 0,1 17,16A1,1 0 0,1 16,17A1,1 0 0,1 15,16A1,1 0 0,1 16,15Z" /></svg>')`,
+            },
+            '& + .MuiSwitch-track': {
+                opacity: 1,
+                backgroundColor: theme.palette.mode === 'dark' ? '#8796A5' : '#aab4be',
+            },
+        },
+    },
+    '& .MuiSwitch-thumb': {
+        backgroundColor: '#cfd8dc',
+        width: 32,
+        height: 32,
+        '&::before': {
+            content: "''",
+            position: 'absolute',
+            width: '70%',
+            height: '70%',
+            left: "15%",
+            top: "15%",
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>chart-box-multiple-outline</title><path d="M20 16V4H8V16M22 16C22 17.1 21.1 18 20 18H8C6.9 18 6 17.1 6 16V4C6 2.9 6.9 2 8 2H20C21.1 2 22 2.9 22 4M16 20V22H4C2.9 22 2 21.1 2 20V7H4V20M16 11H18V14H16M13 6H15V14H13M10 8H12V14H10Z" /></svg>')`,
+        },
+    },
+    '& .MuiSwitch-track': {
+        opacity: 1,
+        backgroundColor: theme.palette.mode === 'dark' ? '#8796A5' : '#aab4be',
+        borderRadius: 20 / 2,
+    },
+}));
+
 
 const NodesModal = ({ nodesOpen, setNodesOpen, node, setNode }) => {
+    const getRowId = (params) => params.data.id;
+    const dataSources = useContext(DataContext)
     const gridRef = useRef()
+    const [labelNum, setLabelNum] = useState(0)
+    const [rowData, setRowData] = useState([])
+    const [numRows, setNumRows] = useState(1)
     const [columnDefs, setColumnDefs] = useState([
         {
-            field: 'label',
+            field: 'id',
             editable: true,
             resizable: true,
             headerComponentParams: { isInput: false },
@@ -99,21 +201,20 @@ const NodesModal = ({ nodesOpen, setNodesOpen, node, setNode }) => {
                             add = false
                         }
                     })
-                    if (add && key != 'id') {
+                    if (add && key != 'label') {
                         copy.push({
                             field: key,
                             editable: true,
                             resizable: true,
                             headerComponentParams: { isInput: false },
                         })
-                        console.log(copy)
                     }
 
                 })
-                console.log(copy)
                 return copy
             })
         }
+        setRowData(node ? node : [])
 
     }, [node])
 
@@ -131,7 +232,6 @@ const NodesModal = ({ nodesOpen, setNodesOpen, node, setNode }) => {
     const getRowData = () => {
         const rowData = [];
         gridRef?.current?.api?.forEachNode(function (node) {
-            console.log(node.data)
             rowData.push(node.data);
         });
         return rowData
@@ -140,11 +240,9 @@ const NodesModal = ({ nodesOpen, setNodesOpen, node, setNode }) => {
     const handleClose = (ev) => {
         let tableData = getRowData()
         tableData = tableData.map(data => {
-            console.log(data)
-            data.id = data.label
+            data.label = data.id
             return data
         })
-        console.log([...tableData])
         setNode(pdata => {
             let copy = { ...pdata }
             copy.data = tableData
@@ -160,16 +258,19 @@ const NodesModal = ({ nodesOpen, setNodesOpen, node, setNode }) => {
         >
             <Box sx={style}>
                 <Typography variant="h6" component="h2"> Add Nodes</Typography>
-                <Button onClick={() => gridRef?.current.api.applyTransaction({ add: [{}] })}>
-                    Add row
+                <TextField label="Add Rows" type="number" value={numRows} onChange={(ev) => { setNumRows(ev.target.valueAsNumber) }} sx={{ mt: 2, width: '24%' }} InputProps={{
+                    endAdornment: <Button onClick={() => { gridRef?.current.api.applyTransaction({ add: new Array(numRows).fill().map(u => { let a = {}; setLabelNum(labelNum => { a.id = `Node_${labelNum}`; return labelNum + 1 }); return a }) }) }}>
+                        Add
                 </Button>
-                <Button onClick={() => {
+                }}></TextField>
+
+                <Button sx={{ width: "24%" }} onClick={() => {
                     const rows = gridRef?.current.api.getSelectedRows()
                     gridRef?.current.api.applyTransaction({ remove: rows })
                 }}>
                     Delete selected rows
                 </Button>
-                <Button onClick={() => {
+                <Button sx={{ width: "24%" }} onClick={() => {
                     let colDefs = gridRef?.current?.api?.getColumnDefs()
                     colDefs.push({
                         field: "",
@@ -181,19 +282,28 @@ const NodesModal = ({ nodesOpen, setNodesOpen, node, setNode }) => {
                 }}>
                     Add Attribute
                 </Button>
+                <Button sx={{ width: "24%" }} onClick={() => {
+                    let colDefs = gridRef?.current?.api?.getColumnDefs()
+                    colDefs.push({
+                        field: "",
+                        editable: true,
+                        resizable: true,
+                        headerComponentParams: { isInput: true, dataSources: dataSources }
+                    })
+                    gridRef?.current?.api?.setColumnDefs(colDefs);
+                }}>
+                    Add Attribute From Data
+                </Button>
                 <div className="ag-theme-alpine" style={{ height: 500 }}>
                     <AgGridReact style={{ width: '100%' }} ref={gridRef}
-                        rowData={node ? node.map((row, i) => {
-                            let copy = { ...row }
-                            copy.label = row.id
-                            return copy
-                        }) : []}
+                        rowData={rowData}
                         columnDefs={columnDefs} rowSelection='multiple'
                         singleClickEdit
                         suppressRowClickSelection
                         autoSizeStrategy={autoSizeStrategy}
                         components={components}
-                        headerHeight={65} />
+                        headerHeight={65}
+                        getRowId={getRowId} />
                 </div>
                 <Button color="success" variant="contained" sx={{ m: 2 }} onClick={handleClose}>Continue?</Button>
             </Box>
@@ -201,11 +311,26 @@ const NodesModal = ({ nodesOpen, setNodesOpen, node, setNode }) => {
     )
 }
 
-const EdgesModal = ({ edgesOpen, setEdgesOpen, source, target, label, setLabel, setSource, setTarget }) => {
+const EdgesModal = ({ nodes, edgesOpen, setEdgesOpen, source, target, label, setLabel, setSource, setTarget }) => {
     const gridRef = useRef()
+    const [rowData, setRowData] = useState([])
+    const dataSources = useContext(DataContext)
+    const [numRows, setNumRows] = useState(1)
+    const [labelNum, setLabelNum] = useState(0)
     const [columnDefs, setColumnDefs] = useState([
         {
+            field: 'id',
+            editable: true,
+            resizable: true,
+            headerComponentParams: { isInput: false },
+            cellDataType: 'text'
+        },
+        {
             field: 'source',
+            cellEditor: 'agRichSelectCellEditor',
+            cellEditorParams: {
+                values: nodes.map(n => n.id),
+            },
             editable: true,
             resizable: true,
             headerComponentParams: { isInput: false },
@@ -220,6 +345,10 @@ const EdgesModal = ({ edgesOpen, setEdgesOpen, source, target, label, setLabel, 
         },
         {
             field: 'target',
+            cellEditor: 'agRichSelectCellEditor',
+            cellEditorParams: {
+                values: nodes.map(n => n.id),
+            },
             editable: true,
             resizable: true,
             headerComponentParams: { isInput: false },
@@ -254,7 +383,7 @@ const EdgesModal = ({ edgesOpen, setEdgesOpen, source, target, label, setLabel, 
                 Object.keys(label?.length > 0 ? label[0] : {}).forEach((key, i) => {
                     let add = true
                     pColDefs.forEach(col => {
-                        if (col.field !== key) {
+                        if (col.field == key) {
                             add = false
                         }
                     })
@@ -271,8 +400,25 @@ const EdgesModal = ({ edgesOpen, setEdgesOpen, source, target, label, setLabel, 
                 return copy
             })
         }
+        setRowData(label ? label.map((edge, i) => {
+            let copy = {...edge}
+            copy.source = source[i]?.id
+            copy.target = target[i]?.id
+            return (copy.source !== undefined && copy.target !== undefined) ? copy : null
+        }).filter((v, i) => v) : [])
 
     }, [label])
+
+    useEffect(() => {
+        setColumnDefs(pColDefs => {
+            let copy = [...pColDefs]
+            let index_source = pColDefs.findIndex(col => col.field == "source")
+            copy[index_source].cellEditorParams = { values: nodes.map(n => n.id)}
+            let index_target = pColDefs.findIndex(col => col.field == "target")
+            copy[index_target].cellEditorParams = { values: nodes.map(n => n.id)}
+            return copy
+        })
+    }, [nodes])
 
     const autoSizeStrategy = {
         type: 'fitGridWidth',
@@ -295,29 +441,39 @@ const EdgesModal = ({ edgesOpen, setEdgesOpen, source, target, label, setLabel, 
 
     const handleClose = (ev) => {
         let tableData = getRowData()
-        tableData = tableData.map(data => {
-            console.log(data)
-            data.id = data.label
-            return data
-        })
         setLabel(plabel => {
-            console.log(plabel)
-            let copy = tableData.map(data => data.label)
-            console.log(plabel, copy)
+            let copy = tableData.map(data => { return {...data}})
             return { data: copy, dataset: plabel.dataset }
 
         })
 
         setSource(psource => {
             let copy = tableData.map(data => { return { id: data.source } })
-            console.log(psource, copy)
-            return { data: copy, dataset: psource.dataset }
+            let res = copy
+            psource.data.forEach(node => {
+                let idx = res.findIndex(snode => snode.id == node.id )
+                if(idx < 0){
+                    res.push(node)
+                } else{
+                    res[idx] = node
+                }
+            })
+            return { data: res, dataset: psource.dataset }
 
         })
 
         setTarget(ptarget => {
             let copy = tableData.map(data => { return { id: data.target } })
-            return { data: copy, dataset: ptarget.dataset }
+            let res = copy
+            ptarget.data.forEach(node => {
+                let idx = res.findIndex(snode => snode.id == node.id )
+                if(idx < 0){
+                    res.push(node)
+                } else{
+                    res[idx] = node
+                }
+            })
+            return { data: res, dataset: ptarget.dataset }
 
         })
 
@@ -331,16 +487,18 @@ const EdgesModal = ({ edgesOpen, setEdgesOpen, source, target, label, setLabel, 
         >
             <Box sx={style}>
                 <Typography variant="h6" component="h2"> Add Nodes</Typography>
-                <Button onClick={() => gridRef?.current.api.applyTransaction({ add: [{}] })}>
-                    Add row
+                <TextField label="Add Rows" type="number" value={numRows} onChange={(ev) => { setNumRows(ev.target.valueAsNumber) }} sx={{ mt: 2, width: '24%' }} InputProps={{
+                    endAdornment: <Button onClick={() => { gridRef?.current.api.applyTransaction({ add: new Array(numRows).fill().map(u => { let a = {}; setLabelNum(labelNum => { a.id = `Edge_${labelNum}`; return labelNum + 1 }); return a }) }) }}>
+                        Add
                 </Button>
-                <Button onClick={() => {
+                }}></TextField>
+                <Button sx={{ width: "24%" }} onClick={() => {
                     const rows = gridRef?.current.api.getSelectedRows()
                     gridRef?.current.api.applyTransaction({ remove: rows })
                 }}>
                     Delete selected rows
                 </Button>
-                <Button onClick={() => {
+                <Button sx={{ width: "24%" }} onClick={() => {
                     let colDefs = gridRef?.current?.api?.getColumnDefs()
                     colDefs.push({
                         field: "",
@@ -350,18 +508,23 @@ const EdgesModal = ({ edgesOpen, setEdgesOpen, source, target, label, setLabel, 
                     })
                     gridRef?.current?.api?.setColumnDefs(colDefs);
                 }}>
-                    Add LaTeX
+                    Add Attribute
+                </Button>
+                <Button sx={{ width: "24%" }} onClick={() => {
+                    let colDefs = gridRef?.current?.api?.getColumnDefs()
+                    colDefs.push({
+                        field: "",
+                        editable: true,
+                        resizable: true,
+                        headerComponentParams: { isInput: true, dataSources: dataSources }
+                    })
+                    gridRef?.current?.api?.setColumnDefs(colDefs);
+                }}>
+                    Add Attribute From Data
                 </Button>
                 <div className="ag-theme-alpine" style={{ height: 500 }}>
                     <AgGridReact style={{ width: '100%' }} ref={gridRef}
-                        rowData={label ? label.map((edge, i) => {
-                            let copy = {}
-                            copy.label = edge
-                            copy.source = source[i]?.id
-                            copy.target = target[i]?.id
-                            // console.log(copy.source !== undefined && copy.target !== undefined)
-                            return (copy.source !== undefined && copy.target !== undefined) ? copy : null
-                        }).filter((v, i) => v) : []}
+                        rowData={rowData}
                         columnDefs={columnDefs} rowSelection='multiple'
                         singleClickEdit
                         suppressRowClickSelection
@@ -398,6 +561,48 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
     const divRef = useRef()
     const [nodesOpen, setNodesOpen] = useState(false)
     const [edgesOpen, setEdgesOpen] = useState(false)
+    const [savedHeight, setSavedHeight] = useState(0)
+    const [mode, setMode] = useState(true)
+
+    const currentStates = {
+        model: model,
+        method: method,
+        order: order,
+        numberVar: numberVar,
+        regressionExpr: regressionExpr,
+        checked: checked,
+        xdata: xdata,
+        ydata: ydata,
+        tabValue: tabValue,
+        xAxis: xAxis,
+        zAxis: zAxis,
+        source: source,
+        target: target,
+        label: label,
+        directed: directed,
+        stylesheet: stylesheet
+    }
+
+    const setters = {
+        model: setModel,
+        method: setMethod,
+        order: setOrder,
+        numberVar: setNumberVar,
+        regressionExpr: setRegressionExpr,
+        checked: setChecked,
+        xdata: setXData,
+        ydata: setYData,
+        tabValue: setTabValue,
+        xAxis: setXAxis,
+        zAxis: setZAxis,
+        source: setSource,
+        target: setTarget,
+        label: setLabel,
+        directed: setDirected,
+        stylesheet: setStylesheet
+    }
+
+    const subset = type == "regression" ? ["model", "method", "xdata", "ydata", "order", "numberVar", "regressionExpr", "checked", "xAxis", "zAxis"] : ["source", "target", "label", "directed", "stylesheet"]
 
     const schema = {
         // $schema: "https://json-schema.org/draft/2020-12/schema",
@@ -492,19 +697,28 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
                 }
 
             }
-        }
+        },
+        required: subset
     }
 
     useEffect(() => {
-        setTotalHeight(pheight => {
-            return pheight + divRef.current.offsetHeight + 35
-        })
-        return () => {
+
+        if (divRef.current.offsetHeight != savedHeight) {
+            setSavedHeight(divRef.current.offsetHeight)
             setTotalHeight(pheight => {
-                return pheight - divRef.current.offsetHeight - 35
+                return pheight + divRef.current.offsetHeight + 45
             })
         }
-    }, [divRef])
+        return () => {
+            if (savedHeight != 0) {
+                setTotalHeight(pheight => {
+                    return pheight - savedHeight - 45
+                })
+                setSavedHeight(0)
+            }
+        }
+
+    }, [divRef, savedHeight])
 
     useEffect(() => {
         if (template) {
@@ -601,10 +815,9 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
         } else {
             let i = Math.min(source.data.length, target.data.length, label.data.length)
             let newLabel = label.data.slice(0, i)
-            let nodes = new Set([...source.data, ...target.data])
-            nodes = Array.from(nodes.values())
+            let nodes = Array.from([...source.data, ...target.data].filter((v,i,a)=>a.findIndex(v2=>(v2.id===v.id))===i))
             nodes = nodes.map((v, i) => { return { data: v } })
-            newLabel = newLabel.map((v, i) => { return { data: { source: source.data[i].id, target: target.data[i].id, label: `${v}` } } })
+            newLabel = newLabel.map((v, i) => { return { data: { source: source.data[i].id, target: target.data[i].id, ...v } } })
             dataAux = [...nodes, ...newLabel]
         }
         setData(dataAux)
@@ -694,7 +907,7 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
             alert('Please select edge labels!')
             return
         }
-        setLabel(data)
+        setLabel({ data: data.data.map((v, i) => { return ({ label: v }) }), dataset: data.dataset })
 
     }
 
@@ -790,7 +1003,7 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
     </>
         :
         <>
-            <NetworkGraph elements={data} directed={directed} stylesheet={stylesheet} setStylesheet={setStylesheet} setSource={setSource} setTarget={setTarget} />
+            <NetworkGraph elements={data} directed={directed} stylesheet={stylesheet} setStylesheet={setStylesheet} setSource={setSource} setTarget={setTarget} setLabel={setLabel}/>
             <Grid container alignItems="center" justifyContent="center" alignContent='center' direction='row' columns={4}>
                 <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropSource(ev) }} onDragOver={allowDrop} onClick={handleSourceNodes}>Source Nodes</Button></Grid>
                 <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropTarget(ev) }} onDragOver={allowDrop} onClick={handleSourceNodes}>Target Nodes</Button></Grid>
@@ -828,25 +1041,50 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
             </Grid>
         </>
 
+    const getDiff = (a, b) => {
+        if (a === b) return [];
+        let keys = Object.keys(a);
+        return keys.reduce((prev, current, i) => {
+            let toAdd;
+            if (typeof a[current] == 'object' || typeof a[current] == 'array') {
+                toAdd = (getDiff(a[current], b[current]).length ? [current] : [])
+            } else {
+                toAdd = a[current] !== b[current] ? [current] : []
+            }
+            return [...prev, ...toAdd]
+
+
+        }, [])
+    }
+
     const handleCliChange = (value, event) => {
-        console.log(value)
+        const filteredStates = subset.reduce((obj, key) => { obj[key] = currentStates[key]; return obj }, {})
+        let diff = getDiff(value, filteredStates)
+        diff.forEach(key => {
+            (setters[key])(value[key])
+        })
     }
 
     const ajv = new Ajv({ allErrors: true, verbose: true });
 
     const cliComponent = <Editor
-        value={states}
+        value={subset.reduce((obj, key) => { obj[key] = currentStates[key]; return obj }, {})}
         onChange={handleCliChange}
         ajv={ajv}
         schema={schema}
+        allowModes={true}
     />;
-
 
     return (
         <>
-            <NodesModal nodesOpen={nodesOpen} setNodesOpen={setNodesOpen} type="source" node={[...source.data, ...target.data].filter((v, i, a) => a.findIndex(v2 => (v2.id == v.id)) === i)} setNode={setSource} />
-            <EdgesModal edgesOpen={edgesOpen} setEdgesOpen={setEdgesOpen} label={label.data} source={source.data} target={target.data} setLabel={setLabel} setSource={setSource} setTarget={setTarget} />
-            <div ref={divRef} onDoubleClick={(ev) => setBannerOpen(true)} style={{ width: '100%', position: 'relative' }} className='graph'>
+            <FormControl sx={{ display: "flex", flexDirection: "row", alignItems: 'center', justifyContent: 'center' }}>
+                <Typography variant="body1">GUI</Typography>
+                <MaterialUISwitch checked={mode} onChange={(ev) => setMode(ev.target.checked)} />
+                <Typography variant="body1">CLI</Typography>
+            </FormControl>
+            <NodesModal nodesOpen={nodesOpen} setNodesOpen={setNodesOpen} type="source" node={Array.from([...source.data, ...target.data].filter((v,i,a)=>a.findIndex(v2=>(v2.id===v.id))===i))} setNode={setSource} />
+            <EdgesModal edgesOpen={edgesOpen} setEdgesOpen={setEdgesOpen} label={label.data} source={source.data} target={target.data} setLabel={setLabel} setSource={setSource} setTarget={setTarget} nodes={Array.from([...source.data, ...target.data].filter((v,i,a)=>a.findIndex(v2=>(v2.id===v.id))===i))}/>
+            <div ref={divRef} onDoubleClick={(ev) => setBannerOpen(true)} style={{ width: '100%', position: 'relative', height: 'max-content' }} className='graph'>
                 <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
                     <Grid item xs={8} />
                     <Grid item xs={1}>
@@ -855,7 +1093,7 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
                         </IconButton>
                     </Grid>
                 </Grid>
-                {type == 'regression' ? <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
+                {type == 'regression' && !mode ? <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
                     <Grid item xs={9}>
                         <Typography variant="h5">{regressionExpr.replaceAll("_", "").replaceAll('\\', '').replaceAll("{", "(").replaceAll("}", ")")} {model == 'linear' || model == 'multiple' ? <Typography variant='overline'><Checkbox checked={checked}
                             onChange={(ev) => setChecked(ev.target.checked)} /> Include intercept?</Typography> : <></>}</Typography>
@@ -870,10 +1108,10 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
                     </Grid>
                 </Grid>
                     : <></>}
-                {cliComponent}
+                {mode ? cliComponent : guiComponent}
                 <br />
                 <br />
-                {type == 'regression' ?
+                {type == 'regression' && !mode ?
                     <>
                         <Grid container columns={8} columnSpacing={2} alignItems="center" alignContent='center'>
                             <Grid item xs={2} />
@@ -943,7 +1181,7 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
                             </Grid>
                         </Grid>
                         <Paper sx={{ height: '88%', overflow: 'scroll', borderWidth: 0 }}>
-                            {guiComponent}
+                            {mode ? cliComponent : guiComponent}
                         </Paper>
                     </Paper>
                 </Fade>
