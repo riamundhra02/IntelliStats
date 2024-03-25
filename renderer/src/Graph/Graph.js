@@ -75,14 +75,6 @@ const CustomHeader = ({ dataSources, displayName, isInput, api, column }) => {
             currentData[key] = dataSources[idx].data[i] ? `${dataSources[idx].data[i][key]}` : ''
             node.updateData(currentData)
         });
-        // console.log([...rowData])
-        // rowData = rowData.map((row, i) => {
-        //     let copy = { ...row }
-        //     copy[key] = dataSources[idx].data[i] ? dataSources[idx].data[i][key] : ''
-        //     return copy
-
-        // })
-        // api.applyTransaction({ remove: rowData, add: rowData })
     };
     return (
         <div class="ag-cell-label-container" role="presentation" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
