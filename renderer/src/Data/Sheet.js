@@ -1,12 +1,13 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useContext } from 'react';
 import Grid from '@mui/material/Grid/Grid'
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
-import { AgGridReact} from 'ag-grid-react'
+import { AgGridReact } from 'ag-grid-react'
 import { RangeSelectionModule } from "ag-grid-enterprise";
 import { ModuleRegistry } from "ag-grid-community/";
 import { ClientSideRowModelModule } from "ag-grid-community";
 import { GridChartsModule } from "ag-grid-enterprise/chartsModule";
+import { TemplateContext } from "../App"
 
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
@@ -42,10 +43,11 @@ const Renderer = (props) => {
     return <span unselectable={isInRange ? "on" : "off"}>{props.value}</span>
 }
 
-export default function Sheet({setTotalHeight, data, exportClicked, setExportClicked, i, idx, selectedIndexes, addToTemplate, removeIdxFromData, projectSaveClicked }) {
+export default function Sheet({ setTotalHeight, data, setExportClicked, i, idx, addToTemplate, removeIdxFromData }) {
     const [range, setRange] = useState()
     const [height, setHeight] = useState(500)
-
+    let { saveClicked, mouseDown, selectedGraphIndexes, selectedDataIndexes, projectSaveClicked, exportClicked, test } = useContext(TemplateContext)
+    let selectedIndexes = selectedDataIndexes
 
     const gridRef = useRef()
 
@@ -112,7 +114,7 @@ export default function Sheet({setTotalHeight, data, exportClicked, setExportCli
 
 
     function handleClose(ev) {
-        let conf = window.confirm('Delete data source?')
+        let conf = test ? true : window.confirm('Delete data source?')
         if (conf) {
             removeIdxFromData(i, idx)
         }
@@ -122,11 +124,12 @@ export default function Sheet({setTotalHeight, data, exportClicked, setExportCli
         if (selectedIndexes.includes(i) || projectSaveClicked) {
             addToTemplate({
                 data: data
-            }, i, 'data')
+            }, i, 'data', saveClicked, projectSaveClicked)
         }
-    }, [selectedIndexes, i, data, projectSaveClicked])
+    }, [selectedIndexes, i, data, projectSaveClicked, saveClicked])
 
     useEffect(() => {
+        console.log(exportClicked)
         const exportt = async () => {
             if (exportClicked == 'xlsx') {
                 gridRef.current?.api?.exportDataAsExcel();
@@ -140,6 +143,7 @@ export default function Sheet({setTotalHeight, data, exportClicked, setExportCli
                 let blob = gridRef.current?.api?.getDataAsExcel();
                 const string = await new Response(blob).arrayBuffer();
                 window.ipcRenderer.send('test_export', { data: string, save: 'xlsx' })
+                console.log("hello")
                 setExportClicked('')
 
             }
@@ -207,12 +211,14 @@ export default function Sheet({setTotalHeight, data, exportClicked, setExportCli
     return (
         <>
             <div className="ag-theme-alpine" style={{ height: height, width: '100%' }}>
-                <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center' sx={{height: 60}}>
+                <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center' sx={{ height: 60 }}>
                     <Grid item xs={8} />
                     <Grid item xs={1}>
-                        <IconButton aria-label="delete" onClick={handleClose} sx={{height: 50, width: 50}}>
-                            <CloseIcon />
-                        </IconButton>
+                        <div className="close-intellistats">
+                            <IconButton aria-label="delete" onClick={handleClose} sx={{ height: 50, width: 50 }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </div>
                     </Grid>
                 </Grid>
                 <AgGridReact ref={gridRef} onGridReady={onGridReady} onGridPreDestroyed={onGridPreDestroyed} enableCharts={true} rowDragManaged={true} suppressRowClickSelection={true} rowData={data} columnDefs={columns} enableRangeSelection={true} onRangeSelectionChanged={rangeSelectionChanged} keepLastSelected={false}></AgGridReact>

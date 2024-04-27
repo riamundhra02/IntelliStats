@@ -150,7 +150,7 @@ function openProject(win) {
         }
         fs.readFile(fileName.filePaths[0], 'utf8', (err, data) => {
             if (err) {
-                alert("An error ocurred reading the file :" + err.message);
+                console.log("An error ocurred reading the file :" + err.message);
                 return;
             }
             let parsedData = JSON.parse(data)

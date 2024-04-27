@@ -1,5 +1,5 @@
 const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
-const menuFuncs = require('./ElectronFunctions/menu')
+const menuFuncs = require('./native_menu/menu')
 const fs = require('fs');
 const xlsx = require('xlsx');
 
@@ -15,10 +15,18 @@ function createWindow() {
     });
     if (process.env.NODE_ENV === 'dev') {
         win.loadURL('http://localhost:3000')
-        win.webContents.openDevTools()
-      } else {
-     win.loadURL(`file://${process.resourcesPath}/build/html/index.html`)
-      }
+        if (process.env.mode != 'test') {
+            win.webContents.openDevTools()
+        }
+    } else {
+        win.loadURL(`file://${process.resourcesPath}/build/html/index.html`)
+    }
+
+    if (process.env.mode == 'test') {
+        ipcMain.on('loaded', (event, m) => {
+            win.webContents.send('isTest', 'isTest')
+        })
+    }
 
 
     ipcMain.on('saveTemplate', (event, m) => {
@@ -58,8 +66,7 @@ function createWindow() {
             if (!file.canceled) {
 
                 const wb = xlsx.read(m.data)
-                // console.log(wb)
-                xlsx.writeFile(wb, file.filePath, {type: m.save})
+                xlsx.writeFile(wb, file.filePath, { type: m.save })
             }
         }).catch(err => {
             console.log(err)
@@ -69,6 +76,7 @@ function createWindow() {
     win.on('closed', () => {
         ipcMain.removeAllListeners('saveTemplate')
         ipcMain.removeAllListeners('test_export')
+        ipcMain.removeAllListeners('loaded')
         win = null
     });
 

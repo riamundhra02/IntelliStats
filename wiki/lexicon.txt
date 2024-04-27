@@ -1,0 +1,129 @@
+The Interface  
+  
+Basics  
+Import Data  
+  
+In order to import data, click on  File > Import Data  in the main menu. A file selection dialog will appear. Select the file with your data to open it as a table in the application.  
+  
+Only .xlsx or .csv files can be imported. The first row of data in your file will be assumed to be a header row.  
+  
+Multiple data sources may be imported within one project.  
+  
+Export Data  
+  
+In order to export data, either  
+Right-click on the table you wish to export, and select  Export  
+In the main menu, select  File > Export > Export Data.  
+  
+Currently, export is supported for .xlsx and .csv formats.  
+  
+Regression Models  
+  
+In order to insert regression models, select  Insert > Regression Model  from the main menu.  
+  
+The regression model dropdown allows you to select the type of regression, and the estimation method dropdown allows you to select the method used to estimate model parameters.  
+  
+Regression Models  
+Single Linear: Linear regression with one independant variable  
+Multiple Linear: Linear regression with multiple independant variables  
+Single Polynomial: Polynomial regression with one independant variable  
+Single Logarithmic: Logarithmic regression with one independant variable  
+  
+Estimation Methods  
+Maximum Likelihood Estimation (Ordinary Least Squares)  
+  
+For a complete reference to all the options available with regression models, see  Regression Models.  
+  
+Saving Templates  
+  
+To save part of a project as a template, select  File > Save > Save as Template. Then, select the data sources and/or models you would like to save as a template, before clicking  Continue  at the bottom right corner of the screen.  
+  
+If a regression model selected for a template depends on a data source outside of the selection, the model will be saved without any data.  
+  
+Importing Templates  
+  
+To import a template, select  Insert > From Template  from the main menu. Data sources from the template will be inserted after any existing data sources in your project, and regression models from the template will be inserted after any existing models the the project.  
+  
+Exporting to PDF  
+  
+To export your entire project as a PDF, select  File > Export > Export Page.  
+  
+Currently, it is not possible to only export certain components of a project as a PDF - the entire project must be exported. 
+ 
+ 
+Regression Models 
+The Interface 
+ 
+Double clicking anywhere on the model interface opens a floating version of the model on the bottom right hand side of your screen, making it easier to drag and drop data. 
+Adding Data 
+ 
+Select the data you wish to add to your model from a table, and drag the data to the  Insert X/Y Data  zones. 
+ 
+If you include data from more than one column, data points will be considered in a top to bottom, left to right manner. See an example below: 
+ 
+All non numerical data will be ignored. A regression will not be performed if all observations of an independent variable are zero, or if independent variables display multicolinearity. 
+ 
+Regression Formula 
+ 
+The regression formula is displayed at the top of every model. 
+ 
+For single linear and multiple linear models, there is also an option to include intercept, which is checked by default. If checked, a constant is added to the regression formula. 
+ 
+For single polynomial or single logarithmic models, there is always a constant term added. 
+ 
+Graph 
+ 
+By default, the graph displays all data points and the regression line, with axis bounds set to the smallest and largest elements in the data set. 
+ 
+To change gridlines or axis bounds, click on the wrench icon. To change the appearance of the points or line, click on the gear icon above the data points. 
+ 
+Additional equations or points can also be plotted, by clicking the add (+) icon above the data points. Refer to the  Desmos API  for details on how to add items. 
+ 
+Regression Models 
+ 
+The  regression model  dropdown allows you to chose from several different types of regressions: 
+ 
+1. Single Linear 
+ 
+A simple linear regression with one independent variable. 
+ 
+By default, a constant term is added to the regression. Unchecking the  Include Intercept  will remove the constant term. 
+ 
+2. Multiple Linear 
+ 
+A simple linear regression with multiple independent variable. 
+ 
+By default, a constant term is added to the regression. Unchecking the  Include Intercept  will remove the constant term. 
+ 
+If you have 2 or more independent variables, you can choose from two views: 
+ 
+Slider Graph 
+ 
+ 
+X1 is the main independent variable. All other variables appear as adjustable siders on the graph. 
+ 
+PCA 
+ 
+For 2 independent variables, this is simply a 3D graph of the data points. The Y axis is always the dependant variable, but the  X axis  and  Z axis  dropdowns on the right control the varible on those axes. 
+ 
+ 
+For more than two independent variables, this does Principle Component Analysis, and displays the Y axis against the two vectors that explained the largest amount of variance in the data. However, the X and Z axis vectors can be changed using the  X axis  and  Z axis  dropdowns. 
+ 
+3. Single Polynomial 
+ 
+ 
+A polynomial regression with one independent variable. A constant term is always added to the regression. 
+ 
+The order of the polynomial regression is controled by the  Order  field. 
+ 
+4. Single Logarithmic 
+ 
+A natural logarithmic regression with one independent variable. A constant term is always added to the regression. 
+ 
+Estimation Methods 
+ 
+The  estimation method  dropdown allows you to select the method used to estimate model parameters. 
+ 
+1. Maximum Likelihood Estimation (Ordinary Least Squares) 
+ 
+Returns the parameter values which maximize the likelihood of the observed dependent variables, given the values of the independent variables. This is the same as the parameters that minimise sum of square differences between the observed and predicted values for the dependent variable.

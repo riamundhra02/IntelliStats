@@ -16,43 +16,85 @@ function multiply(matrixA, matrixB) {
     return result;
 }
 
-function inverse(matrix) {
-    const size = matrix.length;
-    const augmentedMatrix = matrix.map((row, rowIndex) => [...row, ...Array(size).fill(0).map((_, colIndex) => rowIndex === colIndex ? 1 : 0)]);
+function areRowsLinearlyIndependent(matrix) {
+    const rank = getRank(matrix);
+    return rank === matrix.length;
+}
 
-    for (let i = 0; i < size; i++) {
-        let maxElementIndex = i;
-        for (let j = i + 1; j < size; j++) {
-            if (Math.abs(augmentedMatrix[j][i]) > Math.abs(augmentedMatrix[maxElementIndex][i])) {
-                maxElementIndex = j;
-            }
+// Function to compute the rank of a matrix
+function getRank(matrix) {
+    // Use Gaussian elimination to find the row echelon form
+    const clonedMatrix = matrix.map(row => [...row]);
+    const n = clonedMatrix.length;
+    let rank = n;
+    for (let i = 0; i < n; i++) {
+        // Find the pivot
+        let pivotRow = i;
+        while (pivotRow < n && clonedMatrix[pivotRow][i] === 0) {
+            pivotRow++;
         }
-        if (Math.abs(augmentedMatrix[maxElementIndex][i]) === 0) {
-            return;
+        if (pivotRow === n) {
+            rank--;
+            continue;
         }
-
-        [augmentedMatrix[i], augmentedMatrix[maxElementIndex]] = [augmentedMatrix[maxElementIndex], augmentedMatrix[i]];
-
-        for (let j = i + 1; j < size * 2; j++) {
-            augmentedMatrix[i][j] /= augmentedMatrix[i][i];
-        }
-
-        for (let j = 0; j < size; j++) {
-            if (j !== i) {
-                const factor = augmentedMatrix[j][i];
-                for (let k = i; k < size * 2; k++) {
-                    augmentedMatrix[j][k] -= factor * augmentedMatrix[i][k];
-                }
+        // Swap rows
+        [clonedMatrix[i], clonedMatrix[pivotRow]] = [clonedMatrix[pivotRow], clonedMatrix[i]];
+        // Perform row operations to eliminate other elements in the current column
+        for (let j = i + 1; j < n; j++) {
+            const factor = clonedMatrix[j][i] / clonedMatrix[i][i];
+            for (let k = i; k < n; k++) {
+                clonedMatrix[j][k] -= factor * clonedMatrix[i][k];
             }
         }
     }
+    return rank;
+}
 
-    return augmentedMatrix.map(row => row.slice(size));
+// Function to compute the adjugate (adjoint) of a matrix
+function adjugate(matrix) {
+    const n = matrix.length;
+    return matrix.map((row, i) =>
+        row.map((_, j) =>
+            Math.pow(-1, i + j) * determinant(minor(matrix, i, j))
+        )
+    );
+}
+
+// Function to compute the determinant of a matrix (assuming it's square)
+function determinant(matrix) {
+    const n = matrix.length;
+    if (n === 1) {
+        return matrix[0][0];
+    }
+    let det = 0;
+    for (let j = 0; j < n; j++) {
+        det += matrix[0][j] * cofactor(matrix, 0, j);
+    }
+    return det;
+}
+
+// Function to compute the cofactor of a matrix element
+function cofactor(matrix, row, col) {
+    return Math.pow(-1, row + col) * determinant(minor(matrix, row, col));
+}
+
+// Function to compute the minor of a matrix element
+function minor(matrix, row, col) {
+    return matrix.filter((_, i) => i !== row).map(row => row.filter((_, j) => j !== col));
+}
+
+function inverse(matrix) {
+    const adj = adjugate(matrix);
+    const det = determinant(matrix);
+    return adj.map(row => row.map(element => element / det));
 }
 
 export function regressionCalculator(X, y, intercept) {
     if (intercept) {
         X.push(Array(X[0].length).fill(1))
+    }
+    if(!areRowsLinearlyIndependent(X)){
+        return 0
     }
     let Xt = transpose(X)
     let yt = transpose(y)

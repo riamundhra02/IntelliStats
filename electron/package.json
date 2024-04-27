@@ -1,55 +1,56 @@
 {
-    "name": "electron",
-    "version": "1.0.0",
-    "main": "./src/index.js",
-    "license": "MIT",
-    "scripts": {
-        "electron": "electron src",
-        "start": "NODE_ENV=dev nodemon --watch ./src/*.js --watch ./src/**/*.js --exec 'yarn electron'",
-        "dist": "rm -rf dist/; NODE_ENV=prod electron-builder",
-        "wdio": "wdio run ./wdio.conf.js",
-        "build:renderer": "cd ../renderer; yarn build; cd ../main; cp -r ../renderer/build ./build/html"
+  "name": "electron",
+  "version": "1.0.0",
+  "main": "./src/index.js",
+  "license": "MIT",
+  "scripts": {
+    "electron": "electron src",
+    "start": "NODE_ENV=dev nodemon --watch ./src/*.js --watch ./src/**/*.js --exec 'yarn electron'",
+    "dist": "rm -rf dist/; NODE_ENV=prod electron-builder",
+    "wdio": "wdio run ./wdio.conf.js",
+    "build:renderer": "cd ../renderer; yarn build; cd ../main; cp -r ../renderer/build ./build/html"
+  },
+  "devDependencies": {
+    "@badisi/wdio-harness": "^3.0.4",
+    "@electron-forge/cli": "^7.2.0",
+    "@electron-forge/maker-deb": "^7.2.0",
+    "@electron-forge/maker-rpm": "^7.2.0",
+    "@electron-forge/maker-squirrel": "^7.2.0",
+    "@electron-forge/maker-zip": "^7.2.0",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.2.0",
+    "@playwright/test": "^1.43.1",
+    "@testing-library/webdriverio": "^3.2.1",
+    "@types/node": "^20.12.7",
+    "@wdio/cli": "^8.27.0",
+    "@wdio/local-runner": "^8.27.0",
+    "@wdio/mocha-framework": "^8.27.0",
+    "@wdio/spec-reporter": "^8.27.0",
+    "electron": "^27.0.0",
+    "electron-builder": "^24.9.1",
+    "playwright": "^1.40.1",
+    "playwright-fake-dialog": "^0.2.0",
+    "wdio-electron-service": "^6.0.2",
+    "wdio-wait-for": "^3.0.10"
+  },
+  "dependencies": {
+    "electron-squirrel-startup": "^1.0.0",
+    "nodemon": "^3.0.1",
+    "papaparse": "^5.4.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.0/xlsx-0.20.0.tgz"
+  },
+  "build": {
+    "appId": "com.httpslocalhost",
+    "mac": {
+      "category": "public.app-category.developer-tools"
     },
-    "devDependencies": {
-        "@badisi/wdio-harness": "^3.0.4",
-        "@electron-forge/cli": "^7.2.0",
-        "@electron-forge/maker-deb": "^7.2.0",
-        "@electron-forge/maker-rpm": "^7.2.0",
-        "@electron-forge/maker-squirrel": "^7.2.0",
-        "@electron-forge/maker-zip": "^7.2.0",
-        "@electron-forge/plugin-auto-unpack-natives": "^7.2.0",
-        "@playwright/test": "^1.40.1",
-        "@testing-library/webdriverio": "^3.2.1",
-        "@wdio/cli": "^8.27.0",
-        "@wdio/local-runner": "^8.27.0",
-        "@wdio/mocha-framework": "^8.27.0",
-        "@wdio/spec-reporter": "^8.27.0",
-        "electron": "^27.0.0",
-        "electron-builder": "^24.9.1",
-        "playwright": "^1.40.1",
-        "playwright-fake-dialog": "^0.2.0",
-        "wdio-electron-service": "^6.0.2",
-        "wdio-wait-for": "^3.0.10"
-    },
-    "dependencies": {
-        "electron-squirrel-startup": "^1.0.0",
-        "nodemon": "^3.0.1",
-        "papaparse": "^5.4.1",
-        "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.0/xlsx-0.20.0.tgz"
-    },
-    "build": {
-        "appId": "com.httpslocalhost",
-        "mac": {
-            "category": "public.app-category.developer-tools"
-        },
-        "productName": "HTTPSLocalhost",
-        "extraResources": [
-            "tmp/**/*",
-            "data/*.db",
-            "build/**/*"
-        ],
-        "files": [
-            "src/**/*"
-        ]
-    }
+    "productName": "HTTPSLocalhost",
+    "extraResources": [
+      "tmp/**/*",
+      "data/*.db",
+      "build/**/*"
+    ],
+    "files": [
+      "src/**/*"
+    ]
+  }
 }

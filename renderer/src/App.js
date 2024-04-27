@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, createContext} from 'react';
+import React, { useEffect, useState, useRef, createContext, useContext} from 'react';
 import Paper from '@mui/material/Paper/Paper'
 import './App.css';
 import Sheet from './Data/Sheet';
@@ -20,6 +20,39 @@ import {
 
 
 export const DataContext = createContext([]);
+export const TemplateContext = createContext({});
+
+const CustomButton = ({i, m, type, updateSelectedIndexes, setSelectedDataIndexes, setSelectedGraphIndexes, children}) => {
+    const {saveClicked, mouseDown, selectedGraphIndexes, selectedDataIndexes} = useContext(TemplateContext)
+    const selectedIndexes = type == 'data' ? selectedDataIndexes : selectedGraphIndexes
+    const setSelectedIndexes = type == 'data' ? setSelectedDataIndexes : setSelectedGraphIndexes
+
+    return(
+        <Button key={m.idx} disableRipple onClick={(ev) => { ev.stopPropagation(); if (selectedDataIndexes.length + selectedGraphIndexes.length == 0 || ev.crtlKey || ev.metaKey || (selectedDataIndexes.length + selectedGraphIndexes.length == 1 && selectedIndexes.includes(i))) { updateSelectedIndexes(i, type, saveClicked) } else { setSelectedDataIndexes([]); setSelectedGraphIndexes([]) } }}
+                    sx={{
+                        flexDirection: 'column',
+                        width: '100%',
+                        bgcolor: selectedIndexes.includes(i) ? '#eceff1' : '',
+                        border: selectedIndexes.includes(i) ? '1px solid' : '',
+                        borderColour: '#0d47a1',
+                        "&.MuiButtonBase-root:hover": {
+                            bgcolor: selectedIndexes.includes(i) ? '#eceff1' : ''
+                        }
+                    }}
+                    onMouseMove={
+                        (ev) => {
+                            if (saveClicked && mouseDown && selectedIndexes.indexOf(i) == -1) {
+                                let copy = [...selectedIndexes]
+                                copy.push(i)
+                                setSelectedIndexes(copy)
+                            }
+                        }
+                    }
+                >
+                    {children}
+                </Button>
+    )
+}
 
 function App() {
     const [dataSources, setDataSources] = useState([])
@@ -41,6 +74,7 @@ function App() {
     const [continueClicked, setContinueClicked] = useState(false)
     const [api, setApi] = useState(null)
     const [totalHeight, setTotalHeight] = useState(0)
+    const [isTest, setIsTest] = useState(false)
     const pdfRef = useRef()
 
     const options = {
@@ -184,10 +218,30 @@ function App() {
                                 alertNeeded = alertNeeded || v.ydata.dataset > -1
                                 ydata_new = { data: [], dataset: -1 }
                             }
+                            let source_new
+                            if (selectedDataIndexes.includes(v.source.dataset)) {
+                                source_new = v.source
+                            }  else if (v.source.dataset == -2) {
+                                source_new = v.source
+                            } else {
+                                alertNeeded = alertNeeded || v.source.dataset > -1
+                                source_new = { data: [], dataset: -1 }
+                            }
+                            let target_new
+                            if (selectedDataIndexes.includes(v.target.dataset)) {
+                                target_new = v.target
+                            } else if (v.target.dataset == -2) {
+                                target_new = v.target
+                            }else {
+                                alertNeeded = alertNeeded || v.target.dataset > -1
+                                target_new = { data: [], dataset: -1 }
+                            }
 
                             let copy = { ...v }
                             copy.xdata = xdata_new
                             copy.ydata = ydata_new
+                            copy.source = source_new
+                            copy.target = target_new
 
                             return copy
                         })
@@ -210,12 +264,14 @@ function App() {
         }
     }, [selectedGraphIndexes, selectedDataIndexes, saveClicked, continueClicked, projectSaveClicked, template])
 
-    function addToTemplate(state, idx, type) {
+    function addToTemplate(state, idx, type, saveClicked, projectSaveClicked) {
+        console.log(saveClicked)
         if (saveClicked || projectSaveClicked) {
             if (type == 'graph') {
                 setTemplate((ptemplate) => {
                     let copy = [...ptemplate.graph]
                     copy[idx] = state
+                    console.log(copy)
                     return { data: ptemplate.data, graph: copy }
                 })
             } else {
@@ -228,7 +284,7 @@ function App() {
         }
     }
 
-    function updateSelectedIndexes(i, type) {
+    function updateSelectedIndexes(i, type, saveClicked) {
         if (saveClicked) {
             let index, copy, setter;
             if (type == 'graph') {
@@ -295,8 +351,13 @@ function App() {
             if (dataSources.length == 0) {
                 alert('No data to export!')
             } else {
+                console.log(m)
                 setExport(m)
             }
+        });
+
+        window.ipcRenderer.on('isTest', (event, m) => {
+            setIsTest(true)
         });
 
         window.ipcRenderer.on('exportPDF', (event, m) => {
@@ -472,7 +533,9 @@ function App() {
         })
 
         window.ipcRenderer.on('SaveAsTemplate', (event, m) => {
-            alert("Please select items to save to template, then click Continue")
+            if(!isTest){
+                alert("Please select items to save to template, then click Continue")
+            }
             setSaveClicked(true)
         })
 
@@ -502,64 +565,18 @@ function App() {
         "regression": (props) => {
             let { v, i, dataSources } = props.params
             return (
-                <Button key={v.idx} disableRipple
-                    sx={{
-                        flexDirection: 'column',
-                        width: '100%',
-                        bgcolor: selectedGraphIndexes.includes(i) ? '#eceff1' : '',
-                        border: selectedGraphIndexes.includes(i) ? '1px solid' : '',
-                        borderColour: '#0d47a1',
-                        "&.MuiButtonBase-root:hover": {
-                            bgcolor: selectedGraphIndexes.includes(i) ? '#eceff1' : ''
-                        }
-                    }}
-                    onMouseMove={
-                        (ev) => {
-                            if (saveClicked && mouseDown && selectedGraphIndexes.indexOf(i) == -1) {
-                                let copy = [...selectedGraphIndexes]
-                                copy.push(i)
-                                setSelectedGraphIndexes(copy)
-                            }
-                        }
-                    }
-                    onClick={(ev) => { ev.stopPropagation(); if (selectedGraphIndexes.length + selectedDataIndexes.length == 0 || ev.crtlKey || ev.metaKey || (selectedGraphIndexes.length + selectedDataIndexes.length == 1 && selectedGraphIndexes.includes(i))) { updateSelectedIndexes(i, 'graph') } else { setSelectedDataIndexes([]); setSelectedGraphIndexes([]) } }}
-                // onMouseOut={(ev) => {
-                //     if (mouseDown) {
-                //         updateSelectedIndexes(i, 'graph')
-
-                //     }
-                // }}
-                >
+                
+                <CustomButton i={i} m={v} type="graph" updateSelectedIndexes={updateSelectedIndexes} setSelectedDataIndexes={setSelectedDataIndexes} setSelectedGraphIndexes={setSelectedGraphIndexes}>
                     <Graph dataSources ={dataSources} dockviewApi={props.containerApi} setTotalHeight = {setTotalHeight} i={i} template={v.template} projectSaveClicked={projectSaveClicked} removeIdxFromGraphs={removeIdxFromGraphs} states={v.states} selectedIndexes={selectedGraphIndexes} addToTemplate={addToTemplate} className="graph" type={v.type} idx={v.idx} />
-                </Button >
+                </CustomButton >
             )
         },
         "data": (props) => {
             let { m, i } = props.params
             return (
-                <Button key={m.idx} disableRipple onClick={(ev) => { ev.stopPropagation(); if (selectedDataIndexes.length + selectedGraphIndexes.length == 0 || ev.crtlKey || ev.metaKey || (selectedDataIndexes.length + selectedGraphIndexes.length == 1 && selectedDataIndexes.includes(i))) { updateSelectedIndexes(i, 'data') } else { setSelectedDataIndexes([]); setSelectedGraphIndexes([]) } }}
-                    sx={{
-                        flexDirection: 'column',
-                        width: '100%',
-                        bgcolor: selectedDataIndexes.includes(i) ? '#eceff1' : '',
-                        border: selectedDataIndexes.includes(i) ? '1px solid' : '',
-                        borderColour: '#0d47a1',
-                        "&.MuiButtonBase-root:hover": {
-                            bgcolor: selectedDataIndexes.includes(i) ? '#eceff1' : ''
-                        }
-                    }}
-                    onMouseMove={
-                        (ev) => {
-                            if (saveClicked && mouseDown && selectedDataIndexes.indexOf(i) == -1) {
-                                let copy = [...selectedDataIndexes]
-                                copy.push(i)
-                                setSelectedDataIndexes(copy)
-                            }
-                        }
-                    }
-                >
+                <CustomButton i={i} m={m} type="data" updateSelectedIndexes={updateSelectedIndexes} setSelectedDataIndexes={setSelectedDataIndexes} setSelectedGraphIndexes={setSelectedGraphIndexes}>
                     <Sheet setTotalHeight = {setTotalHeight} projectSaveClicked={projectSaveClicked} data={m.data} exportClicked={exportt} setExportClicked={setExport} i={i} idx={m.idx} selectedIndexes={selectedDataIndexes} addToTemplate={addToTemplate} key={m.idx} removeIdxFromData={removeIdxFromData} className="sheet" />
-                </Button>
+                </CustomButton>
             )
         }
     }
@@ -599,12 +616,14 @@ function App() {
                             <Paper ref={pdfRef} elevation={3} sx={{ width: 4 / 5, m: 'auto', mt: '3rem', mb: '3rem', height: 'auto', padding: '1rem', minHeight: 1000 }}>
                                 <div style={{ height: totalHeight }}>
                                     <DataContext.Provider value={dataSources}>
-                                    <DockviewReact
-                                        components={dict}
-                                        onReady={onReady}
-                                        className={'dockview-theme-light'}
-                                        defaultTabComponent={CustomHeader}
-                                    />
+                                        <TemplateContext.Provider value={{saveClicked: saveClicked, projectSaveClicked: projectSaveClicked, selectedDataIndexes: selectedDataIndexes, selectedGraphIndexes: selectedGraphIndexes, mouseDown: mouseDown, exportClicked:exportt, test:isTest}}>
+                                        <DockviewReact
+                                            components={dict}
+                                            onReady={onReady}
+                                            className={'dockview-theme-light'}
+                                            defaultTabComponent={CustomHeader}
+                                        />
+                                    </TemplateContext.Provider>
                                     </DataContext.Provider>
                                 </div>
                             </Paper>} />

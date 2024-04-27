@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useContext } from 'react'
 import { DataContext } from "../App";
+import { TemplateContext } from "../App"
 import InputLabel from '@mui/material/InputLabel';
 import { registerTransform } from 'echarts/core';
 import { transform, regression } from 'echarts-stat';
@@ -36,7 +37,7 @@ import Ajv from 'ajv';
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
-const CustomHeader = ({ dataSources, displayName, isInput, api, column }) => {
+const CustomHeader = ({ dataSources, displayName, isInput, api, column, setColumnDefs, i }) => {
     const [name, setName] = useState(displayName)
     const [key, setKey] = useState('');
     const options = dataSources?.map((source, i) => { return { keys: Object.keys(source.data[0]), idx: i } }).flat()
@@ -51,6 +52,7 @@ const CustomHeader = ({ dataSources, displayName, isInput, api, column }) => {
             }
         })
         editColDef.field = ev.target.value;
+        console.log(colDefs)
         api.setColumnDefs(colDefs);
     }
 
@@ -148,6 +150,7 @@ const MaterialUISwitch = styled(Switch)(({ theme }) => ({
 
 
 const NodesModal = ({ nodesOpen, setNodesOpen, node, setNode }) => {
+
     const getRowId = (params) => params.data.id;
     const dataSources = useContext(DataContext)
     const gridRef = useRef()
@@ -183,7 +186,9 @@ const NodesModal = ({ nodesOpen, setNodesOpen, node, setNode }) => {
     };
 
     useEffect(() => {
+        console.log(node)
         if (columnDefs) {
+            console.log(columnDefs)
             setColumnDefs(pColDefs => {
                 let copy = [...pColDefs]
                 Object.keys(node?.length > 0 ? node[0] : {}).forEach((key, i) => {
@@ -203,12 +208,33 @@ const NodesModal = ({ nodesOpen, setNodesOpen, node, setNode }) => {
                     }
 
                 })
+                copy = copy.map(col => {
+                    if (col == {
+                        field: "",
+                        editable: true,
+                        resizable: true,
+                        headerComponentParams: { isInput: true, dataSources: dataSources }
+                    } || col == {
+                        field: "",
+                        editable: true,
+                        resizable: true,
+                        headerComponentParams: { isInput: true }
+                    }) {
+                        return undefined
+                    } else {
+                        return col
+                    }
+                }).filter(col => col)
                 return copy
             })
         }
         setRowData(node ? node : [])
 
-    }, [node])
+    }, [JSON.stringify(node)])
+
+    useEffect(() => {
+
+    }, [])
 
     const autoSizeStrategy = {
         type: 'fitGridWidth',
@@ -238,6 +264,7 @@ const NodesModal = ({ nodesOpen, setNodesOpen, node, setNode }) => {
         setNode(pdata => {
             let copy = { ...pdata }
             copy.data = tableData
+            copy.dataset = copy.dataset == -1 ? -2 : copy.dataset
             return copy
         })
         setNodesOpen(false)
@@ -253,7 +280,7 @@ const NodesModal = ({ nodesOpen, setNodesOpen, node, setNode }) => {
                 <TextField label="Add Rows" type="number" value={numRows} onChange={(ev) => { setNumRows(ev.target.valueAsNumber) }} sx={{ mt: 2, width: '24%' }} InputProps={{
                     endAdornment: <Button onClick={() => { gridRef?.current.api.applyTransaction({ add: new Array(numRows).fill().map(u => { let a = {}; setLabelNum(labelNum => { a.id = `Node_${labelNum}`; return labelNum + 1 }); return a }) }) }}>
                         Add
-                </Button>
+                    </Button>
                 }}></TextField>
 
                 <Button sx={{ width: "24%" }} onClick={() => {
@@ -268,11 +295,21 @@ const NodesModal = ({ nodesOpen, setNodesOpen, node, setNode }) => {
                         field: "",
                         editable: true,
                         resizable: true,
-                        headerComponentParams: { isInput: true }
+                        headerComponentParams: { isInput: true, setColumnDefs: setColumnDefs }
                     })
                     gridRef?.current?.api?.setColumnDefs(colDefs);
+                    // setColumnDefs(pColDefs => {
+                    //     let copy = [...pColDefs]
+                    //     copy.push({
+                    //         field: "",
+                    //         editable: true,
+                    //         resizable: true,
+                    //         headerComponentParams: { isInput: true }
+                    //     })
+                    //     return copy
+                    // })
                 }}>
-                    Add Attribute
+                    Add Column
                 </Button>
                 <Button sx={{ width: "24%" }} onClick={() => {
                     let colDefs = gridRef?.current?.api?.getColumnDefs()
@@ -283,6 +320,16 @@ const NodesModal = ({ nodesOpen, setNodesOpen, node, setNode }) => {
                         headerComponentParams: { isInput: true, dataSources: dataSources }
                     })
                     gridRef?.current?.api?.setColumnDefs(colDefs);
+                    // setColumnDefs(pColDefs => {
+                    //     let copy = [...pColDefs]
+                    //     copy.push({
+                    //         field: "",
+                    //         editable: true,
+                    //         resizable: true,
+                    //         headerComponentParams: { isInput: true, dataSources: dataSources }
+                    //     })
+                    //     return copy
+                    // })
                 }}>
                     Add Attribute From Data
                 </Button>
@@ -393,7 +440,7 @@ const EdgesModal = ({ nodes, edgesOpen, setEdgesOpen, source, target, label, set
             })
         }
         setRowData(label ? label.map((edge, i) => {
-            let copy = {...edge}
+            let copy = { ...edge }
             copy.source = source[i]?.id
             copy.target = target[i]?.id
             return (copy.source !== undefined && copy.target !== undefined) ? copy : null
@@ -405,9 +452,9 @@ const EdgesModal = ({ nodes, edgesOpen, setEdgesOpen, source, target, label, set
         setColumnDefs(pColDefs => {
             let copy = [...pColDefs]
             let index_source = pColDefs.findIndex(col => col.field == "source")
-            copy[index_source].cellEditorParams = { values: nodes.map(n => n.id)}
+            copy[index_source].cellEditorParams = { values: nodes.map(n => n.id) }
             let index_target = pColDefs.findIndex(col => col.field == "target")
-            copy[index_target].cellEditorParams = { values: nodes.map(n => n.id)}
+            copy[index_target].cellEditorParams = { values: nodes.map(n => n.id) }
             return copy
         })
     }, [nodes])
@@ -434,8 +481,8 @@ const EdgesModal = ({ nodes, edgesOpen, setEdgesOpen, source, target, label, set
     const handleClose = (ev) => {
         let tableData = getRowData()
         setLabel(plabel => {
-            let copy = tableData.map(data => { return {...data}})
-            return { data: copy, dataset: plabel.dataset }
+            let copy = tableData.map(data => { return { ...data } })
+            return { data: copy, dataset: plabel.dataset == -1 ? -2 : plabel.dataset }
 
         })
 
@@ -443,10 +490,10 @@ const EdgesModal = ({ nodes, edgesOpen, setEdgesOpen, source, target, label, set
             let copy = tableData.map(data => { return { id: data.source } })
             let res = copy
             psource.data.forEach(node => {
-                let idx = res.findIndex(snode => snode.id == node.id )
-                if(idx < 0){
+                let idx = res.findIndex(snode => snode.id == node.id)
+                if (idx < 0) {
                     res.push(node)
-                } else{
+                } else {
                     res[idx] = node
                 }
             })
@@ -458,10 +505,10 @@ const EdgesModal = ({ nodes, edgesOpen, setEdgesOpen, source, target, label, set
             let copy = tableData.map(data => { return { id: data.target } })
             let res = copy
             ptarget.data.forEach(node => {
-                let idx = res.findIndex(snode => snode.id == node.id )
-                if(idx < 0){
+                let idx = res.findIndex(snode => snode.id == node.id)
+                if (idx < 0) {
                     res.push(node)
-                } else{
+                } else {
                     res[idx] = node
                 }
             })
@@ -482,7 +529,7 @@ const EdgesModal = ({ nodes, edgesOpen, setEdgesOpen, source, target, label, set
                 <TextField label="Add Rows" type="number" value={numRows} onChange={(ev) => { setNumRows(ev.target.valueAsNumber) }} sx={{ mt: 2, width: '24%' }} InputProps={{
                     endAdornment: <Button onClick={() => { gridRef?.current.api.applyTransaction({ add: new Array(numRows).fill().map(u => { let a = {}; setLabelNum(labelNum => { a.id = `Edge_${labelNum}`; return labelNum + 1 }); return a }) }) }}>
                         Add
-                </Button>
+                    </Button>
                 }}></TextField>
                 <Button sx={{ width: "24%" }} onClick={() => {
                     const rows = gridRef?.current.api.getSelectedRows()
@@ -500,7 +547,7 @@ const EdgesModal = ({ nodes, edgesOpen, setEdgesOpen, source, target, label, set
                     })
                     gridRef?.current?.api?.setColumnDefs(colDefs);
                 }}>
-                    Add Attribute
+                    Add Column
                 </Button>
                 <Button sx={{ width: "24%" }} onClick={() => {
                     let colDefs = gridRef?.current?.api?.getColumnDefs()
@@ -531,7 +578,7 @@ const EdgesModal = ({ nodes, edgesOpen, setEdgesOpen, source, target, label, set
 }
 
 
-export default function Graph({ setTotalHeight, template, type, i, idx, removeIdxFromGraphs, states, selectedIndexes, addToTemplate, projectSaveClicked }) {
+export default function Graph({ setTotalHeight, template, type, i, idx, removeIdxFromGraphs, states, addToTemplate }) {
     const [model, setModel] = useState(states.model);
     const [method, setMethod] = useState(states.method);
     const [xdata, setXData] = useState(states.xdata)
@@ -554,7 +601,11 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
     const [nodesOpen, setNodesOpen] = useState(false)
     const [edgesOpen, setEdgesOpen] = useState(false)
     const [savedHeight, setSavedHeight] = useState(0)
-    const [mode, setMode] = useState(true)
+    const [mode, setMode] = useState(false)
+
+    let { saveClicked, mouseDown, selectedGraphIndexes, selectedDataIndexes, projectSaveClicked, test } = useContext(TemplateContext)
+    let selectedIndexes = selectedGraphIndexes
+
 
     const currentStates = {
         model: model,
@@ -698,13 +749,13 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
         if (divRef.current.offsetHeight != savedHeight) {
             setSavedHeight(divRef.current.offsetHeight)
             setTotalHeight(pheight => {
-                return pheight + divRef.current.offsetHeight + 45
+                return pheight + divRef.current.offsetHeight + 85
             })
         }
         return () => {
             if (savedHeight != 0) {
                 setTotalHeight(pheight => {
-                    return pheight - savedHeight - 45
+                    return pheight - savedHeight - 85
                 })
                 setSavedHeight(0)
             }
@@ -738,6 +789,7 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
     registerTransform(transform.regression)
 
     useEffect(() => {
+        console.log(selectedIndexes, i)
         if (selectedIndexes.includes(i) || projectSaveClicked) {
             let copy = [...stylesheet]
             copy.forEach(style => {
@@ -767,10 +819,10 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
                 directed: directed,
                 stylesheet: copy,
                 type: type
-            }, i, 'graph')
+            }, i, 'graph', saveClicked, projectSaveClicked)
         }
 
-    }, [selectedIndexes, i, model, method, order, numberVar, regressionExpr, checked, xdata, ydata, tabValue, xAxis, zAxis, projectSaveClicked])
+    }, [selectedIndexes, saveClicked, i, model, method, order, numberVar, regressionExpr, checked, xdata, ydata, tabValue, xAxis, zAxis, projectSaveClicked])
     useEffect(() => {
         if (model != "multiple") {
             setNumberVar(1)
@@ -807,7 +859,7 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
         } else {
             let i = Math.min(source.data.length, target.data.length, label.data.length)
             let newLabel = label.data.slice(0, i)
-            let nodes = Array.from([...source.data, ...target.data].filter((v,i,a)=>a.findIndex(v2=>(v2.id===v.id))===i))
+            let nodes = Array.from([...source.data, ...target.data].filter((v, i, a) => a.findIndex(v2 => (v2.id === v.id)) === i))
             nodes = nodes.map((v, i) => { return { data: v } })
             newLabel = newLabel.map((v, i) => { return { data: { source: source.data[i].id, target: target.data[i].id, ...v } } })
             dataAux = [...nodes, ...newLabel]
@@ -876,7 +928,11 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
             alert('Please select source data!')
             return
         }
-        setSource({ data: data.data.map((v, i) => { return ({ id: v }) }), dataset: data.dataset })
+        setSource(psource => {
+            let copy = { ...psource }
+            let newData = data.data.map((v, i) => { return ({ id: v }) })
+            return { data: [...copy.data, ...newData], dataset: data.dataset }
+        })
 
     }
 
@@ -888,7 +944,11 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
             return
         }
 
-        setTarget({ data: data.data.map((v, i) => { return ({ id: v }) }), dataset: data.dataset })
+        setTarget(ptarget => {
+            let copy = { ...ptarget }
+            let newData = data.data.map((v, i) => { return ({ id: v }) })
+            return { data: [...copy.data, ...newData], dataset: data.dataset }
+        })
 
     }
 
@@ -899,12 +959,16 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
             alert('Please select edge labels!')
             return
         }
-        setLabel({ data: data.data.map((v, i) => { return ({ label: v }) }), dataset: data.dataset })
+        setLabel(plabel => {
+            let copy = { ...plabel }
+            let newData = data.data.map((v, i) => { return ({ label: v }) })
+            return { data: [...copy.data, ...newData], dataset: data.dataset }
+        })
 
     }
 
     function handleClose(ev) {
-        let conf = window.confirm('Delete model?')
+        let conf = test ? true : window.confirm('Delete model?')
         if (conf) {
             removeIdxFromGraphs(i, idx)
         }
@@ -961,7 +1025,7 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
         }
     }, [model, numberVar, order, data, checked])
 
-    const guiComponent = type == 'regression' ? <>
+    const guiComponent = type == 'regression' ? <div className="graph">
         <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center' sx={{ width: '100%' }}>
             <Grid item xs={1}>
                 <Button onDrop={dropY} onDragOver={allowDrop}>Insert Y Data</Button>
@@ -992,10 +1056,10 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
             })}
         </Grid>
 
-    </>
+    </div>
         :
-        <>
-            <NetworkGraph elements={data} directed={directed} stylesheet={stylesheet} setStylesheet={setStylesheet} setSource={setSource} setTarget={setTarget} setLabel={setLabel}/>
+        <div className="graph">
+            <NetworkGraph elements={data} directed={directed} stylesheet={stylesheet} setStylesheet={setStylesheet} setSource={setSource} setTarget={setTarget} setLabel={setLabel} />
             <Grid container alignItems="center" justifyContent="center" alignContent='center' direction='row' columns={4}>
                 <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropSource(ev) }} onDragOver={allowDrop} onClick={handleSourceNodes}>Source Nodes</Button></Grid>
                 <Grid item xs={1} alignItems="center" alignContent='center'><Button alignItems="center" alignContent='center' onDrop={(ev) => { dropTarget(ev) }} onDragOver={allowDrop} onClick={handleSourceNodes}>Target Nodes</Button></Grid>
@@ -1027,11 +1091,11 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
                                 return copy
                             })
                         }} /> Directed?
-                        </Typography>
+                    </Typography>
                 </Grid>
 
             </Grid>
-        </>
+        </div>
 
     const getDiff = (a, b) => {
         if (a === b) return [];
@@ -1053,7 +1117,8 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
         const filteredStates = subset.reduce((obj, key) => { obj[key] = currentStates[key]; return obj }, {})
         let diff = getDiff(value, filteredStates)
         diff.forEach(key => {
-            (setters[key])(value[key])
+            console.log(key)
+                (setters[key])(value[key])
         })
     }
 
@@ -1074,15 +1139,17 @@ export default function Graph({ setTotalHeight, template, type, i, idx, removeId
                 <MaterialUISwitch checked={mode} onChange={(ev) => setMode(ev.target.checked)} />
                 <Typography variant="body1">CLI</Typography>
             </FormControl>
-            <NodesModal nodesOpen={nodesOpen} setNodesOpen={setNodesOpen} type="source" node={Array.from([...source.data, ...target.data].filter((v,i,a)=>a.findIndex(v2=>(v2.id===v.id))===i))} setNode={setSource} />
-            <EdgesModal edgesOpen={edgesOpen} setEdgesOpen={setEdgesOpen} label={label.data} source={source.data} target={target.data} setLabel={setLabel} setSource={setSource} setTarget={setTarget} nodes={Array.from([...source.data, ...target.data].filter((v,i,a)=>a.findIndex(v2=>(v2.id===v.id))===i))}/>
+            <NodesModal nodesOpen={nodesOpen} setNodesOpen={setNodesOpen} type="source" node={Array.from([...source.data, ...target.data].filter((v, i, a) => a.findIndex(v2 => (v2.id === v.id)) === i))} setNode={setSource} />
+            <EdgesModal edgesOpen={edgesOpen} setEdgesOpen={setEdgesOpen} label={label.data} source={source.data} target={target.data} setLabel={setLabel} setSource={setSource} setTarget={setTarget} nodes={Array.from([...source.data, ...target.data].filter((v, i, a) => a.findIndex(v2 => (v2.id === v.id)) === i))} />
             <div ref={divRef} onDoubleClick={(ev) => setBannerOpen(true)} style={{ width: '100%', position: 'relative', height: 'max-content' }} className='graph'>
                 <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
                     <Grid item xs={8} />
                     <Grid item xs={1}>
-                        <IconButton aria-label="delete" onClick={handleClose}>
-                            <CloseIcon />
-                        </IconButton>
+                        <div className='close-intellistats'>
+                            <IconButton aria-label="delete" onClick={handleClose}>
+                                <CloseIcon />
+                            </IconButton>
+                        </div>
                     </Grid>
                 </Grid>
                 {type == 'regression' && !mode ? <Grid container columns={9} columnSpacing={2} alignItems="center" alignContent='center'>
