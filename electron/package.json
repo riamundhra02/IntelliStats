@@ -33,6 +33,7 @@
     "wdio-wait-for": "^3.0.10"
   },
   "dependencies": {
+    "cloc": "^2.0.0-cloc",
     "electron-squirrel-startup": "^1.0.0",
     "nodemon": "^3.0.1",
     "papaparse": "^5.4.1",
